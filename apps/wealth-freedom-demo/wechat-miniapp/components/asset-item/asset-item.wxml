@@ -1,0 +1,7 @@
+<view class="asset-item">
+  <view>
+    <text class="asset-name">{{name}}</text>
+    <text class="asset-meta">{{meta}}</text>
+  </view>
+  <text class="asset-value">{{value}}</text>
+</view>

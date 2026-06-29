@@ -1,0 +1,183 @@
+<view class="page asset-page">
+  <view class="page-title">
+    <text class="eyebrow">可投资资产</text>
+    <text class="title">资产结构</text>
+  </view>
+
+  <view class="card asset-summary">
+    <view class="summary-head">
+      <view>
+        <text class="summary-label">可投资资产</text>
+        <text class="summary-value">{{summary.totalText}}</text>
+        <text class="summary-note">今日 {{summary.todayText}} · 当前估值 {{summary.valuationTotalText}}</text>
+      </view>
+      <button class="mini-button" bindtap="refreshQuotes">刷新估值</button>
+    </view>
+
+    <view class="summary-metrics">
+      <view class="summary-metric">
+        <text class="summary-metric-label">现金</text>
+        <text class="summary-metric-value">{{summary.cashText}}</text>
+      </view>
+      <view class="summary-metric">
+        <text class="summary-metric-label">投资</text>
+        <text class="summary-metric-value">{{summary.investmentsText}}</text>
+      </view>
+      <view class="summary-metric">
+        <text class="summary-metric-label">快照变化</text>
+        <text class="summary-metric-value">{{summary.valuationChangeText}}</text>
+      </view>
+    </view>
+
+    <view class="allocation-panel">
+      <view class="allocation-head">
+        <text class="allocation-head-title">资产占比</text>
+        <text class="allocation-head-note">{{holdings.length}} 笔</text>
+      </view>
+      <view wx:for="{{summary.allocationRows}}" wx:key="type" class="allocation-row {{item.className}}">
+        <view class="allocation-meta">
+          <text class="allocation-label">{{item.label}}</text>
+          <text class="allocation-value">{{item.valueText}} · {{item.shareText}} · {{item.countText}}</text>
+        </view>
+        <view class="allocation-track">
+          <view class="allocation-fill" style="width: {{item.barWidth}}"></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="quote-summary">
+      <text class="quote-summary-text">{{summary.quoteStatusText}}</text>
+      <text class="quote-summary-text">{{summary.valuationStatusText}} · {{summary.valuationTimeText}}</text>
+      <text wx:if="{{summary.valuationSourceText}}" class="quote-summary-text">{{summary.valuationSourceText}}</text>
+    </view>
+  </view>
+
+  <view class="card asset-list">
+    <view class="list-head">
+      <view>
+        <text class="list-head-title">持仓</text>
+        <text class="list-head-note">聚焦金额、涨跌和估值状态。</text>
+      </view>
+      <text class="count-chip">{{holdings.length}} 笔</text>
+    </view>
+    <view wx:if="{{!holdings.length}}" class="empty-state">
+      <text class="empty-copy">暂无持仓，先添加一笔资产。</text>
+      <button class="empty-button" bindtap="openAssetForm">添加资产</button>
+    </view>
+    <view wx:for="{{holdings}}" wx:key="id" class="holding-row {{editingHoldingId === item.id ? 'holding-row-editing' : ''}}">
+      <view class="holding-main">
+        <view class="holding-topline">
+          <text class="holding-name">{{item.name}}</text>
+          <text class="holding-value">{{item.valueText}}</text>
+        </view>
+        <view class="holding-meta-row">
+          <text class="holding-meta">{{item.typeLabel}} · {{item.metaText}}</text>
+          <text class="holding-today">今日 {{item.todayText}}</text>
+        </view>
+        <view class="holding-quote holding-quote-{{item.quoteStatus}}">
+          <text class="holding-quote-status">{{item.quoteMessageText}}</text>
+          <text class="holding-quote-source">{{item.quoteText}}</text>
+        </view>
+      </view>
+      <view class="holding-actions">
+        <view class="edit-chip" data-id="{{item.id}}" bindtap="editHolding" hover-class="chip-hover">修改</view>
+        <view class="delete-chip" data-id="{{item.id}}" bindtap="deleteHolding" hover-class="chip-hover">删除</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!isFormOpen}}" class="card asset-entry-cta">
+    <view>
+      <text class="entry-title">添加或导入资产</text>
+      <text class="entry-copy">录入区默认收起，浏览资产结构时不占用首屏。</text>
+    </view>
+    <button class="primary-button entry-button" bindtap="openAssetForm">添加资产</button>
+  </view>
+
+  <view wx:if="{{isFormOpen}}" id="assetEditForm" class="card asset-form">
+    <view class="form-head">
+      <view>
+        <text class="list-head-title">{{formTitle}}</text>
+        <text class="list-head-note">{{selectedTypeLabel}} · 保存后会更新每日估值快照</text>
+      </view>
+      <button class="close-button" bindtap="toggleAssetForm">收起</button>
+    </view>
+    <label class="form-label">
+      资产类型
+      <picker range="{{assetTypeOptions}}" range-key="label" value="{{selectedTypeIndex}}" bindchange="onTypeChange">
+        <view class="picker-field">{{selectedTypeLabel}}</view>
+      </picker>
+    </label>
+    <label class="form-label">
+      名称
+      <input class="form-input" data-field="name" value="{{form.name}}" bindinput="onFormInput" placeholder="例如：沪深300指数基金" />
+    </label>
+    <label class="form-label" wx:if="{{form.type !== 'cash'}}">
+      代码 / 识别码
+      <input class="form-input" data-field="code" value="{{form.code}}" bindinput="onFormInput" placeholder="000300" />
+    </label>
+    <label class="form-label" wx:if="{{form.type === 'cash'}}">
+      现金金额
+      <input class="form-input" data-field="amount" type="digit" value="{{form.amount}}" bindinput="onFormInput" placeholder="10000" />
+    </label>
+    <label class="form-label" wx:if="{{form.type !== 'cash'}}">
+      当前金额
+      <input class="form-input" data-field="amount" type="digit" value="{{form.amount}}" bindinput="onFormInput" placeholder="130000" />
+    </label>
+    <view wx:if="{{form.type !== 'cash'}}" class="form-grid">
+      <label class="form-label">
+        持有数量 / 份额
+        <input class="form-input" data-field="quantity" type="digit" value="{{form.quantity}}" bindinput="onFormInput" placeholder="1000" />
+      </label>
+      <label class="form-label">
+        成本价
+        <input class="form-input" data-field="costPrice" type="digit" value="{{form.costPrice}}" bindinput="onFormInput" placeholder="1.2" />
+      </label>
+      <label class="form-label">
+        当前价
+        <input class="form-input" data-field="currentPrice" type="digit" value="{{form.currentPrice}}" bindinput="onFormInput" placeholder="1.25" />
+      </label>
+    </view>
+    <view wx:if="{{form.type !== 'cash'}}" class="ocr-card">
+      <view>
+        <text class="ocr-title">截图识别候选</text>
+        <text class="ocr-copy">OCR 只能辅助填表。识别结果先进入待确认卡片，逐项检查后才会回填；未确认不会保存。</text>
+      </view>
+      <button class="secondary-button" bindtap="simulateOcr">试用截图识别</button>
+      <view wx:if="{{pendingOcr}}" class="ocr-result">
+        <view class="ocr-result-head">
+          <text class="ocr-result-title">待确认识别结果</text>
+          <text class="ocr-result-confidence">{{pendingOcr.confidenceText}}</text>
+        </view>
+        <label class="ocr-field">
+          名称
+          <input class="ocr-input" data-field="name" value="{{pendingOcr.name}}" bindinput="onPendingOcrInput" />
+        </label>
+        <label class="ocr-field">
+          代码 / 识别码
+          <input class="ocr-input" data-field="code" value="{{pendingOcr.code}}" bindinput="onPendingOcrInput" />
+        </label>
+        <view class="ocr-field-grid">
+          <label class="ocr-field">
+            份额
+            <input class="ocr-input" data-field="quantity" type="digit" value="{{pendingOcr.quantity}}" bindinput="onPendingOcrInput" />
+          </label>
+          <label class="ocr-field">
+            成本价
+            <input class="ocr-input" data-field="costPrice" type="digit" value="{{pendingOcr.costPrice}}" bindinput="onPendingOcrInput" />
+          </label>
+          <label class="ocr-field">
+            当前价
+            <input class="ocr-input" data-field="currentPrice" type="digit" value="{{pendingOcr.currentPrice}}" bindinput="onPendingOcrInput" />
+          </label>
+        </view>
+        <view class="ocr-actions">
+          <button class="ocr-confirm" bindtap="confirmOcr">确认并回填</button>
+          <button class="ocr-cancel" bindtap="cancelOcr">取消识别</button>
+        </view>
+      </view>
+    </view>
+    <button class="primary-button add-button" bindtap="saveHolding">{{formActionText}}</button>
+    <button wx:if="{{editingHoldingId}}" class="secondary-button cancel-edit-button" bindtap="cancelEdit">取消修改</button>
+  </view>
+</view>

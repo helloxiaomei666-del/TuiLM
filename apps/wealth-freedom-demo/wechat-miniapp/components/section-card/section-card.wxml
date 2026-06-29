@@ -1,0 +1,7 @@
+<view class="section-card">
+  <view>
+    <text class="section-title">{{title}}</text>
+    <text class="section-note" wx:if="{{note}}">{{note}}</text>
+  </view>
+  <text class="section-value">{{value}}</text>
+</view>

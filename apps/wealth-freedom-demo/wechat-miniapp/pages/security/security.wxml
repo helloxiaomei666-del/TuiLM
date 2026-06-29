@@ -1,0 +1,107 @@
+<view class="page security-page">
+  <view class="page-title">
+    <text class="eyebrow">退休保障</text>
+    <text class="title">按退休作用区分未来月领与福利资产，辅助判断退休能力</text>
+  </view>
+
+  <view class="card security-hero">
+    <view class="summary-head">
+      <view class="summary-main">
+        <text class="summary-label">退休保障总额</text>
+        <text class="summary-value">{{summary.totalText}}</text>
+      </view>
+      <text class="support-chip">未来保障参考 {{summary.supportFactorText}}</text>
+    </view>
+
+    <view class="impact-panel">
+      <text class="impact-title">未来保障影响</text>
+      <text class="impact-copy">{{summary.impactText}}</text>
+      <text class="impact-copy muted">{{summary.pensionGapText}}</text>
+    </view>
+
+    <view class="security-metrics">
+      <view class="security-metric">
+        <text class="metric-label">退休月领</text>
+        <text class="metric-value">{{summary.monthlyIncomeText}}</text>
+      </view>
+      <view class="security-metric">
+        <text class="metric-label">房贷冲还</text>
+        <text class="metric-value">{{summary.loanOffsetText}}</text>
+      </view>
+      <view class="security-metric wide">
+        <text class="metric-label">养老金缴费进度</text>
+        <text class="metric-value">{{summary.pensionProgressText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card security-form">
+    <view class="form-head">
+      <text class="form-title">按退休作用分类录入</text>
+      <text class="form-note">社会保障用于记录预计退休后月领；福利资产用于记录工作期积累，默认不计入当前退休率。</text>
+    </view>
+
+    <view class="security-category-tabs">
+      <view
+        wx:for="{{securityCategories}}"
+        wx:for-item="category"
+        wx:key="key"
+        class="security-category-tab {{category.className}}"
+        data-category="{{category.key}}"
+        bindtap="switchSecurityCategory"
+      >
+        <text class="category-title">{{category.title}}</text>
+        <text class="category-note">{{category.countText}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{selectedCategory}}" class="impact-panel">
+      <text class="impact-title">{{selectedCategory.title}}</text>
+      <text class="impact-copy muted">{{selectedCategory.note}}</text>
+    </view>
+
+    <view class="security-submenu">
+      <view
+        wx:for="{{groupsInCategory}}"
+        wx:for-item="group"
+        wx:key="key"
+        class="submenu-chip {{group.className}}"
+        data-group="{{group.key}}"
+        bindtap="switchSecurityGroup"
+      >
+        {{group.title}}
+      </view>
+    </view>
+
+    <view wx:if="{{selectedGroup}}" class="security-group">
+      <view class="group-head">
+        <view class="group-title-block">
+          <text class="group-title">{{selectedGroup.title}}</text>
+          <text class="group-note">{{selectedGroup.note}}</text>
+        </view>
+      </view>
+
+      <view class="group-summary">
+        <view class="group-stat">
+          <text class="group-stat-label">余额</text>
+          <text class="group-stat-value">{{selectedGroup.balanceText}}</text>
+        </view>
+        <view class="group-stat">
+          <text class="group-stat-label">月缴</text>
+          <text class="group-stat-value">{{selectedGroup.monthlyContributionText}}</text>
+        </view>
+        <view class="group-stat">
+          <text class="group-stat-label">影响</text>
+          <text class="group-stat-value">{{selectedGroup.benefitText}}</text>
+        </view>
+      </view>
+
+      <view class="security-field-list">
+        <label class="security-field" wx:for="{{selectedGroup.fields}}" wx:for-item="field" wx:key="key">
+          <text class="field-label">{{field.label}}</text>
+          <input class="form-input" data-key="{{field.key}}" type="digit" value="{{field.value}}" bindinput="onSecurityInput" />
+        </label>
+      </view>
+    </view>
+  </view>
+</view>

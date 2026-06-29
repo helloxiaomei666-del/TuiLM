@@ -1,0 +1,5 @@
+<view class="metric-card">
+  <text class="metric-label">{{label}}</text>
+  <text class="metric-value">{{value}}</text>
+  <text class="metric-note" wx:if="{{note}}">{{note}}</text>
+</view>

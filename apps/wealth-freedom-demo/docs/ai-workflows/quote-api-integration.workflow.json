@@ -1,0 +1,600 @@
+{
+  "workflow_id": "wealth_freedom_quote_api_integration_v2",
+  "version": 2,
+  "name": "退了吗资产估值系统真实 API 接入工作流",
+  "language": "zh-CN",
+  "repo_root": "C:\\Users\\18955\\Desktop\\Codex_work\\ios_app\\wealth-freedom-demo",
+  "intent": "把当前 mock/local 估值架构推进到可安全接入真实行情 API 的状态，用于资产记录和退休进度测算。",
+  "non_goals": [
+    "不提供买卖建议",
+    "不推荐金融产品",
+    "不承诺收益",
+    "不提供自动交易能力",
+    "不把第三方 API key 写入小程序前端或 git"
+  ],
+  "global_constraints": [
+    "先读取当前代码状态，不依赖历史印象",
+    "保护现有用户改动，不重置或删除无关文件",
+    "小程序前端不得直连第三方行情 API",
+    "正式小程序环境必须使用 HTTPS 合法 request 域名",
+    "API 失败时必须保留用户已有持仓和上次价格",
+    "所有价格必须展示来源、更新时间和状态",
+    "游客模式 WAServiceMainContext、webapi_getwxaasyncsecinfo、wx.operateWXData 噪音不得误判为项目错误",
+    "每个阶段完成后运行对应验证",
+    "每次收尾都要输出完成、部分完成、未完成清单"
+  ],
+  "baseline_files": [
+    "wechat-miniapp/utils/quote-client.js",
+    "wechat-miniapp/utils/asset-model.js",
+    "wechat-miniapp/pages/assets/assets.js",
+    "wechat-miniapp/pages/assets/assets.wxml",
+    "wechat-miniapp/pages/assets/assets.wxss",
+    "wechat-miniapp/utils/valuation-model.js",
+    "quote-service/server.js",
+    "quote-service/mock-quotes.js",
+    "quote-service/valuation-engine.js",
+    "quote-service/valuation-store.js",
+    "quote-service/providers/provider-contract.md",
+    "scripts/wechat-miniapp-preflight.ps1",
+    "docs/quote-valuation-architecture.md",
+    "docs/daily-valuation-architecture.md",
+    "docs/wechat-miniapp-acceptance-checklist.md"
+  ],
+  "commands": {
+    "preflight": "powershell -ExecutionPolicy Bypass -File scripts\\wechat-miniapp-preflight.ps1",
+    "quote_service_tests": "node --test tests\\quote-service.test.js",
+    "quote_client_tests": "node --test tests\\quote-client.test.js tests\\wechat-miniapp-page-smoke.test.js tests\\wechat-miniapp.test.js",
+    "quote_provider_tests": "node --test tests\\quote-provider.test.js",
+    "valuation_model_tests": "node --test tests\\valuation-model.test.js",
+    "security_static_tests": "node --test tests\\security-static.test.js",
+    "quote_service_start": "node quote-service\\server.js",
+    "init_private_appid": "powershell -ExecutionPolicy Bypass -File scripts\\init-miniapp-private-config.ps1 -AppId <real-appid>",
+    "git_status": "git status --short --ignored",
+    "secret_scan": "rg -n \"api[_-]?key\\s*[:=]|access[_-]?token\\s*[:=]|secret\\s*[:=]|sk-[A-Za-z0-9]|AKIA[0-9A-Z]{16}\" . -g \"!*.png\" -g \"!*.jpg\" -g \"!*.jpeg\" -g \"!.git/**\" -g \"!.runtime/**\""
+  },
+  "phase_status": {
+    "phase_0_to_phase_6": "implemented_and_committed_before_v2",
+    "phase_7_test_hardening": "completed_in_v2",
+    "phase_8_docs_api_handoff": "completed_in_v2",
+    "phase_9_real_provider_selection": "completed_provider_selection_report",
+    "phase_10_fund_nav_provider_spike": "completed_backend_skeleton_and_fixture_tests",
+    "phase_11_local_tushare_permission_fallback": "completed_permission_denied_fallback",
+    "phase_12_api_provider_research_and_selection": "completed_tushare_permission_blocked_provider_reselection",
+    "phase_13_provider_trial_application_and_adapter_spike": "completed_hs_light_adapter_stub_fixture_tests_waiting_authorization_reply",
+    "next_recommended_phase": "phase_14_hs_light_authorization_reply_and_live_probe"
+  },
+  "phases": [
+    {
+      "id": "phase_1_real_devtools_appid_verification",
+      "title": "真实开发者工具与 AppID 验证",
+      "objective": "确认小程序在真实 WeChat DevTools 环境里可稳定编译、预览和运行。",
+      "inputs": [
+        "当前仓库",
+        "真实小程序 AppID",
+        "微信开发者工具 GUI"
+      ],
+      "tasks": [
+        "运行 preflight",
+        "使用 init_private_appid 生成本地 project.private.config.json",
+        "在微信开发者工具导入 wechat-miniapp",
+        "按 docs/wechat-miniapp-acceptance-checklist.md 逐页验收",
+        "只记录指向 pages、utils、app.js 的项目错误"
+      ],
+      "acceptance_criteria": [
+        "五个 tab 可切换",
+        "资产页可新增、删除、刷新估值、OCR 确认回填",
+        "刷新估值不清空持仓",
+        "无项目文件级 Cannot find module、TypeError、ReferenceError",
+        "project.private.config.json 保持 ignored"
+      ],
+      "verification_commands": [
+        "preflight",
+        "git_status"
+      ],
+      "risks": [
+        "本机可能没有 WeChat DevTools CLI",
+        "游客模式会产生工具噪音",
+        "真机和模拟器行为可能不同"
+      ],
+      "exit_rule": "如果 local preflight 通过但 GUI 或真机失败，优先修复真实工具中指向项目文件的错误；不要继续做真实 API 接入。"
+    },
+    {
+      "id": "phase_2_quote_service_backend_hardening",
+      "title": "quote-service 后端生产化骨架",
+      "objective": "把本地 quote-service 推进为可部署的后端边界，但仍不接真实 provider key。",
+      "tasks": [
+        "增加 QUOTE_SERVICE_PORT、QUOTE_SERVICE_ALLOWED_ORIGIN、QUOTE_PROVIDER_MODE、QUOTE_CACHE_TTL_SECONDS 配置",
+        "拆分 providers/mock-provider.js 和 providers/provider-registry.js",
+        "预留 fund-provider.js 与 gold-provider.js",
+        "增加 /health",
+        "增加统一错误模型",
+        "增加内存缓存、TTL 和 provider timeout"
+      ],
+      "acceptance_criteria": [
+        "node quote-service\\server.js 可启动",
+        "/health 返回服务状态",
+        "mock provider 返回标准 quote",
+        "错误响应结构稳定",
+        "测试不依赖真实网络",
+        "无任何真实 API key"
+      ],
+      "verification_commands": [
+        "quote_service_tests",
+        "preflight",
+        "secret_scan"
+      ],
+      "risks": [
+        "后端结构过早复杂化",
+        "缓存掩盖 provider 错误",
+        "服务端口与静态 demo 冲突"
+      ],
+      "exit_rule": "如果 mock provider 或错误响应不稳定，不进入真实 provider 接入。"
+    },
+    {
+      "id": "phase_3_miniapp_quote_client_configuration",
+      "title": "小程序 quote client 配置化",
+      "objective": "让小程序能在 local mock 和 HTTPS quote-service 之间切换。",
+      "tasks": [
+        "新增 wechat-miniapp/utils/quote-config.js",
+        "支持 local 和 wx-request 模式",
+        "配置自有 quote-service base URL",
+        "校验正式模式必须使用 https://",
+        "禁止 URL 中出现 key、token、secret",
+        "更新 quote-client 与页面冒烟测试"
+      ],
+      "acceptance_criteria": [
+        "默认游客模式仍使用 local adapter",
+        "wx-request 模式请求自有后端",
+        "后端失败保留旧值",
+        "cash 不请求",
+        "页面继续展示 source、priceTime、quoteStatus、quoteMessage"
+      ],
+      "verification_commands": [
+        "quote_client_tests",
+        "preflight",
+        "secret_scan"
+      ],
+      "risks": [
+        "正式 request 合法域名需要真实 HTTPS 域名后才能验证",
+        "微信开发者工具热重载可能缓存旧文件"
+      ],
+      "exit_rule": "如果 wx-request adapter 破坏游客模式 local 刷新，先恢复 local 默认路径。"
+    },
+    {
+      "id": "phase_4_fund_etf_nav_provider",
+      "title": "基金 / ETF 净值接入",
+      "objective": "优先接入适合资产记录的基金/ETF 净值 provider。",
+      "tasks": [
+        "确认 provider 授权、延迟、频率限制和展示要求",
+        "provider key 只存后端环境变量",
+        "实现 fund provider adapter",
+        "使用 fixture 增加 contract tests",
+        "按交易日或 provider 更新周期缓存基金净值",
+        "更新文档和 UI 数据来源说明"
+      ],
+      "acceptance_criteria": [
+        "有效基金代码返回 quote",
+        "无效代码返回 quote_not_found",
+        "provider 失败时小程序保留旧值",
+        "UI 明确展示 source 和 priceTime",
+        "不出现交易建议文案"
+      ],
+      "verification_commands": [
+        "quote_service_tests",
+        "quote_client_tests",
+        "preflight",
+        "secret_scan"
+      ],
+      "risks": [
+        "provider 数据延迟可能被误认为实时行情",
+        "基金代码格式存在市场差异",
+        "授权条款可能限制展示或缓存"
+      ],
+      "exit_rule": "如果 provider 授权或 key 管理不清楚，不写真实接入代码，只保留 adapter stub 和文档。"
+    },
+    {
+      "id": "phase_5_gold_provider",
+      "title": "黄金估值接入",
+      "objective": "为商品/黄金资产提供估值刷新能力。",
+      "tasks": [
+        "明确黄金估值单位",
+        "实现 gold provider adapter",
+        "增加单位转换和异常值校验",
+        "小程序商品/黄金持仓展示来源和更新时间",
+        "增加黄金 quote、单位转换、异常价格测试"
+      ],
+      "acceptance_criteria": [
+        "commodity/gold 持仓可刷新估值",
+        "单位在文档和代码中清楚",
+        "异常 quote 不覆盖旧价格",
+        "不输出买卖建议"
+      ],
+      "verification_commands": [
+        "quote_service_tests",
+        "quote_client_tests",
+        "preflight",
+        "secret_scan"
+      ],
+      "risks": [
+        "黄金数据源单位差异大",
+        "汇率和交易所价格可能导致误解",
+        "需要明确展示延迟和来源"
+      ],
+      "exit_rule": "如果单位或 provider 时间戳无法解释清楚，不接入正式黄金估值。"
+    },
+    {
+      "id": "phase_6_experience_version_acceptance",
+      "title": "体验版验收与发布前检查",
+      "objective": "形成可交给外部试用的体验版候选。",
+      "tasks": [
+        "运行完整 preflight",
+        "在微信开发者工具上传体验版",
+        "真机扫码验证资产页核心路径",
+        "检查隐私与免责声明",
+        "检查 request 合法域名",
+        "检查无 key、日志、.runtime、project.private.config.json 入库"
+      ],
+      "acceptance_criteria": [
+        "体验版可打开",
+        "资产记录、刷新估值、OCR 确认、删除均可用",
+        "quote-service 失败时页面保留旧数据",
+        "免责声明明确不构成投资建议、不承诺收益"
+      ],
+      "verification_commands": [
+        "preflight",
+        "git_status",
+        "secret_scan"
+      ],
+      "risks": [
+        "微信审核和域名配置属于外部流程",
+        "真机网络可能暴露模拟器没有的问题"
+      ],
+      "exit_rule": "如果体验版或真机验证失败，停止发布动作，回到对应代码阶段修复。"
+    },
+    {
+      "id": "phase_7_test_hardening",
+      "status": "completed_in_v2",
+      "title": "测试固化与安全扫描",
+      "objective": "把每日估值快照、后端 valuation endpoints、backend adapter 和 provider 占位纳入稳定自动验证。",
+      "tasks": [
+        "确认 valuation-model 覆盖同日 upsert、上一快照对比和失败 quote 保留估值",
+        "确认 quote-service 覆盖 valuation preview、snapshot 和 snapshot query",
+        "确认 quote-client backend adapter 成功与失败兜底",
+        "确认 provider placeholder 不泄露环境变量值",
+        "新增 security-static 测试，允许环境变量名但拒绝真实 key、token、secret",
+        "确认 preflight 自动发现新增测试并检查 quote-service JS 语法"
+      ],
+      "acceptance_criteria": [
+        "quote-service valuation 测试通过",
+        "quote-client backend adapter 失败时保留旧价格",
+        "provider placeholder 输出不包含真实环境变量值",
+        "security-static 测试通过",
+        "完整 preflight 通过"
+      ],
+      "verification_commands": [
+        "quote_service_tests",
+        "quote_client_tests",
+        "quote_provider_tests",
+        "valuation_model_tests",
+        "security_static_tests",
+        "preflight",
+        "git_status"
+      ],
+      "risks": [
+        "安全扫描正则过宽可能误报文档中的环境变量名",
+        "Node 服务测试必须避免留下后台进程",
+        "本地私有 AppID 配置不能进入提交"
+      ],
+      "exit_rule": "如果任一估值或安全测试失败，先修复测试覆盖的真实问题，再进入文档收口。"
+    },
+    {
+      "id": "phase_8_docs_api_handoff",
+      "status": "completed_in_v2",
+      "title": "文档与真实 API 接入手册",
+      "objective": "把每日估值监控、provider 合约、后端接口和下一阶段真实 API 选择流程写成 AI 可继续执行的手册。",
+      "tasks": [
+        "更新 README 的行情估值服务段落",
+        "更新 docs/quote-valuation-architecture.md，加入每日快照、valuation endpoints、provider 合约和测试说明",
+        "新增 docs/daily-valuation-architecture.md 作为每日估值监控主文档",
+        "更新本 workflow，标记 phase_7/phase_8 并给出 phase_9 provider 选择入口",
+        "明确真实 API key 只能在后端环境变量或 secret manager 中配置",
+        "明确小程序正式环境必须请求自有 HTTPS 后端并配置合法 request 域名"
+      ],
+      "acceptance_criteria": [
+        "文档说明本系统只做资产记录和退休进度测算",
+        "文档说明 quote-service valuation endpoints 和 .runtime 本地存储边界",
+        "文档说明真实 provider 只能在 quote-service/providers/ 内实现",
+        "文档没有真实 API key、token、secret",
+        "下一阶段真实 API 筛选路径清楚"
+      ],
+      "verification_commands": [
+        "security_static_tests",
+        "preflight",
+        "git_status"
+      ],
+      "risks": [
+        "文档把 mock/local 误写成实时行情",
+        "真实 API 接入前缺少授权条款确认",
+        "后续部署需要正式 HTTPS 域名和数据库设计"
+      ],
+      "exit_rule": "如果文档无法解释 provider 授权、key 管理、缓存和失败兜底，不允许写真实 provider 代码。"
+    },
+    {
+      "id": "phase_9_real_provider_selection",
+      "status": "completed_provider_selection_report",
+      "title": "真实行情 API 选择",
+      "objective": "由 AI 主导筛选真实 provider，用户只提供授权账号、服务条款确认和必要的后台环境变量配置。",
+      "artifact": "docs/real-provider-selection.md",
+      "tasks": [
+        "按基金/ETF、黄金、股票、债券顺序列出候选 provider",
+        "逐项检查授权范围、商用展示、延迟说明、频率限制、缓存限制和价格",
+        "输出 provider 对比表和推荐接入顺序",
+        "只在用户确认 provider 和授权后实现真实 provider adapter",
+        "使用 fixture tests 验证字段解析、失败兜底、限频和缺字段场景"
+      ],
+      "acceptance_criteria": [
+        "选定 provider 的授权和展示要求清楚",
+        "后端环境变量名和部署方式清楚",
+        "小程序合法 request 域名路径清楚",
+        "未拿到 key 或授权前不写真实网络请求代码"
+      ],
+      "verification_commands": [
+        "quote_provider_tests",
+        "quote_service_tests",
+        "security_static_tests",
+        "preflight"
+      ],
+      "risks": [
+        "provider 授权不允许当前展示方式",
+        "免费接口稳定性或合法性不足",
+        "数据延迟被用户误解为交易行情"
+      ],
+      "exit_rule": "如果 provider 授权、费用、展示或 key 管理不清楚，只保留方案，不进入真实接入实现。"
+    },
+    {
+      "id": "phase_10_fund_nav_provider_spike",
+      "status": "completed_backend_skeleton_and_fixture_tests",
+      "title": "基金 / ETF 日净值 Provider Spike",
+      "objective": "在不提交真实 token 的前提下，实现基金 / ETF 日净值 provider adapter 骨架和 fixture tests。",
+      "preferred_provider": "Tushare Pro for engineering spike; HS LIGHT Cloud for production candidate",
+      "artifact_files": [
+        "quote-service/providers/provider-registry.js",
+        "quote-service/providers/tushare-provider.js",
+        "tests/quote-provider.test.js",
+        "tests/quote-service.test.js",
+        "quote-service/README.md"
+      ],
+      "tasks": [
+        "新增 quote-service/providers/provider-registry.js",
+        "新增 quote-service/providers/tushare-provider.js",
+        "只从后端环境变量读取 TUSHARE_TOKEN",
+        "用 fixture 覆盖 fund_nav 或 fund_daily 成功、无效代码、缺字段、provider 错误",
+        "把 provider 输出统一映射为标准 quote",
+        "保留 local/mock 为默认模式",
+        "更新 quote-service README 和 API 接入文档"
+      ],
+      "acceptance_criteria": [
+        "未配置 token 时 provider 返回 error quote 且不泄露 token",
+        "fixture 成功时返回标准 quote",
+        "provider 失败时小程序和 valuation preview 保留旧价格",
+        "不请求真实网络作为自动测试前提",
+        "无 API key、token、secret 入库"
+      ],
+      "verification_commands": [
+        "quote_provider_tests",
+        "quote_service_tests",
+        "security_static_tests",
+        "preflight",
+        "git_status"
+      ],
+      "risks": [
+        "Tushare 授权边界需要用户确认",
+        "基金净值更新周期不是实时行情",
+        "fixture 不能替代真实账号验收"
+      ],
+      "exit_rule": "如果用户没有确认 provider 或授权条款，不接真实网络，只保留 adapter skeleton 和 fixture tests。"
+    },
+    {
+      "id": "phase_11_local_tushare_token_verification",
+      "status": "completed_permission_denied_fallback",
+      "title": "本地 Tushare Token 验证与权限不足兜底",
+      "objective": "用户在本机后端进程临时配置 TUSHARE_TOKEN，由 AI 指导验证真实 API 链路，并把权限不足归一成不会破坏估值的业务错误。",
+      "tasks": [
+        "用户在 PowerShell 设置 QUOTE_PROVIDER_MODE=tushare",
+        "用户在同一 PowerShell 设置 TUSHARE_TOKEN",
+        "启动 node quote-service\\server.js",
+        "请求 /api/quotes?type=fund&code=000300",
+        "如果 Tushare 返回权限或积分错误，只记录错误码和处理建议，不记录 token",
+        "把 fund_nav 权限不足映射为 provider_permission_denied",
+        "小程序 backend adapter 显示数据源权限不足并保留旧估值"
+      ],
+      "acceptance_criteria": [
+        "quote-service 返回标准 quote 或清晰 provider error",
+        "响应包含 source、priceTime、status、message",
+        "失败时不清空旧价格",
+        "git status 不包含 token 或 .env"
+      ],
+      "verification_commands": [
+        "quote_provider_tests",
+        "quote_service_tests",
+        "security_static_tests",
+        "preflight",
+        "git_status"
+      ],
+      "risks": [
+        "Tushare token 权限不足",
+        "基金代码不在当前权限范围",
+        "本地终端历史可能保留用户输入的 token"
+      ],
+      "exit_rule": "如果真实 API 报权限或频次问题，不修改小程序前端，先回到 provider 授权和测试 fixture。"
+    },
+    {
+      "id": "phase_12_api_provider_research_and_selection",
+      "status": "completed_tushare_permission_blocked_provider_reselection",
+      "title": "Tushare 权限不足后的 API 供应商重选",
+      "objective": "在 Tushare fund_nav 和 fund_daily 均无权限后，由 AI 主导重新筛选可申请、可试用、可合规展示的真实估值 provider。",
+      "artifact": "docs/api-provider-selection-phase-12.md",
+      "tasks": [
+        "记录 Tushare fund_nav 和 fund_daily 权限不足的验证结果",
+        "重新评估恒生 LIGHT 云、聚宽 JQData、东财掘金、iTick、聚合数据和黄金 provider",
+        "按正式授权、试用可行性、字段适配、商用展示、缓存限制和接入成本排序",
+        "输出 AI 主体工作流和供应商咨询问题模板",
+        "把下一阶段切换为 provider 试用申请与 adapter spike"
+      ],
+      "acceptance_criteria": [
+        "不再继续尝试无权限 Tushare 接口，除非用户开通权限",
+        "至少确定一个可申请或可试用的正式数据源候选",
+        "文档明确用户只需完成账号申请、授权确认和后端环境变量配置",
+        "真实 provider 接入前只写 adapter stub、fixture tests 和文档",
+        "无 key、token、secret 入库"
+      ],
+      "verification_commands": [
+        "security_static_tests",
+        "preflight",
+        "git_status"
+      ],
+      "risks": [
+        "正式供应商公开资料不足，需要商务确认价格和授权",
+        "试用账号可能无法返回最近净值，不能验证每日估值",
+        "部分接口偏实时行情，容易让产品被误解为交易工具"
+      ],
+      "exit_rule": "如果候选 provider 的商用展示、缓存、费用或接口认证不清楚，只保留文档和 adapter stub，不接真实网络。"
+    },
+    {
+      "id": "phase_13_provider_trial_application_and_adapter_spike",
+      "status": "completed_hs_light_adapter_stub_fixture_tests_waiting_authorization_reply",
+      "title": "候选 Provider 试用申请与 Adapter Spike",
+      "objective": "根据 phase_12 结论，优先向恒生 LIGHT 云或聚宽 JQData 申请试用/授权，并在不提交密钥的前提下实现 provider adapter stub 和 fixture tests。",
+      "artifact_files": [
+        "quote-service/providers/hs-light-provider.js",
+        "quote-service/providers/provider-registry.js",
+        "tests/quote-provider.test.js",
+        "tests/quote-service.test.js",
+        "quote-service/README.md"
+      ],
+      "tasks": [
+        "已根据用户在 HS LIGHT 沙箱调通的脱敏响应写 provider adapter stub",
+        "已新增 provider registry 模式 hs-light",
+        "已用 fixture 覆盖成功、权限不足、认证失败、空数据和交易日默认逻辑",
+        "已保持小程序默认 local/mock",
+        "等待恒生工单回复商用展示、缓存、价格和生产开通方式"
+      ],
+      "acceptance_criteria": [
+        "未配置密钥时返回 error quote 且不泄露 secret",
+        "fixture 成功时返回标准 quote",
+        "失败时 valuation preview 和小程序保留旧价格",
+        "provider source、priceTime、status、message 清楚",
+        "不把 provider key 写入小程序、文档或 git"
+      ],
+      "verification_commands": [
+        "quote_provider_tests",
+        "quote_service_tests",
+        "security_static_tests",
+        "preflight",
+        "git_status"
+      ],
+      "risks": [
+        "用户未能获得试用或正式授权",
+        "官方返回字段与文档不一致",
+        "供应商限制缓存或终端展示"
+      ],
+      "exit_rule": "如果没有试用权限或官方响应结构，只提交 stub、fixture 和文档，不实现真实网络调用。"
+    },
+    {
+      "id": "phase_14_hs_light_authorization_reply_and_live_probe",
+      "status": "not_started",
+      "title": "恒生授权回复与本地真实探测",
+      "objective": "根据恒生客服/工单回复确认展示、缓存和生产调用边界；如果允许使用，则在本机后端环境变量中配置 Authorization 并做真实接口探测。",
+      "tasks": [
+        "阅读恒生对小程序展示、后端缓存、商业化和版权文案的回复",
+        "如果允许使用，用户只在本机 PowerShell 设置 HS_LIGHT_AUTHORIZATION",
+        "用 hs-light provider 请求 /api/quotes?type=fund&code=112002",
+        "记录脱敏响应结构，不记录 Authorization",
+        "根据真实响应补 contract tests 和错误映射",
+        "决定是否进入云端 HTTPS quote-service 部署"
+      ],
+      "acceptance_criteria": [
+        "授权边界清楚",
+        "真实接口返回标准 quote 或清晰 provider error",
+        "失败时保留旧估值",
+        "无 Authorization、key、token、secret 入库"
+      ],
+      "verification_commands": [
+        "quote_provider_tests",
+        "quote_service_tests",
+        "security_static_tests",
+        "preflight",
+        "git_status"
+      ],
+      "risks": [
+        "恒生不允许小程序商业展示",
+        "生产 Authorization 生成方式与在线调试不同",
+        "生产环境需要正式网关、白名单或应用审核"
+      ],
+      "exit_rule": "如果授权回复不允许展示或缓存，不进入真实接入，回到 provider 选择。"
+    },
+    {
+      "id": "phase_15_real_tushare_retest_after_permission",
+      "status": "blocked_waiting_for_provider_permission",
+      "title": "Tushare 权限开通后的真实基金净值复测",
+      "objective": "等用户开通 fund_nav 或 fund_daily 权限后，复测真实净值返回并决定是否恢复 Tushare 路线。",
+      "tasks": [
+        "用户重置并本地配置 TUSHARE_TOKEN",
+        "确认 Tushare fund_nav 或 fund_daily 权限已开通",
+        "复测 /api/quotes?type=fund&code=000300",
+        "复测 /api/quotes?type=etf&code=510300.SH",
+        "只记录响应结构和字段，不记录 token",
+        "成功后再评估 quote cache、云端数据库和定时任务"
+      ],
+      "acceptance_criteria": [
+        "真实基金或 ETF 返回 status=ok",
+        "quote 包含 price、priceTime、source、message",
+        "source 清楚标注 Tushare Pro fund_nav 或 fund_daily",
+        "无 token、secret、.env 入库"
+      ],
+      "verification_commands": [
+        "quote_provider_tests",
+        "quote_service_tests",
+        "security_static_tests",
+        "preflight",
+        "git_status"
+      ],
+      "risks": [
+        "真实权限仍不足",
+        "Tushare 返回字段与 fixture 存在差异",
+        "商业展示授权仍需单独确认"
+      ],
+      "exit_rule": "如果权限仍不足，保持 mock/local 默认路径和权限不足兜底，不进入生产接入。"
+    }
+  ],
+  "decision_rules": [
+    {
+      "condition": "preflight fails",
+      "action": "先修复本地验证失败，不进入下一阶段"
+    },
+    {
+      "condition": "debugger error only references WAServiceMainContext or webapi_getwxaasyncsecinfo in tourist mode",
+      "action": "记录为工具链噪音，不作为项目代码错误处理"
+    },
+    {
+      "condition": "debugger error references pages/ or utils/",
+      "action": "定位项目文件并补测试后修复"
+    },
+    {
+      "condition": "real provider key is unavailable",
+      "action": "只实现 provider adapter stub、fixture tests 和文档，不接真实 API"
+    },
+    {
+      "condition": "quote refresh fails",
+      "action": "保留旧持仓和旧价格，只更新 quoteStatus 与 quoteMessage"
+    }
+  ],
+  "done_definition": [
+    "对应阶段 acceptance_criteria 全部满足",
+    "verification_commands 全部通过或外部阻断已明确记录",
+    "git status 不包含未提交业务改动",
+    "没有 API key、token、secret 入库",
+    "最终汇报包含完成、部分完成、未完成和下一步"
+  ],
+  "initial_recommended_phase": "phase_13_provider_trial_application_and_adapter_spike"
+}

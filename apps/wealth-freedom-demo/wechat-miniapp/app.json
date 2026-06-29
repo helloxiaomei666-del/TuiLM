@@ -1,0 +1,56 @@
+{
+  "pages": [
+    "pages/overview/overview",
+    "pages/assets/assets",
+    "pages/security/security",
+    "pages/route/route",
+    "pages/drags/drags",
+    "pages/legal/legal"
+  ],
+  "window": {
+    "navigationBarTitleText": "退了吗",
+    "navigationBarBackgroundColor": "#f3f7f5",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f3f7f5"
+  },
+  "tabBar": {
+    "color": "#6a7772",
+    "selectedColor": "#0f766e",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/overview/overview",
+        "text": "总览",
+        "iconPath": "assets/tab-overview.png",
+        "selectedIconPath": "assets/tab-overview-active.png"
+      },
+      {
+        "pagePath": "pages/assets/assets",
+        "text": "资产",
+        "iconPath": "assets/tab-assets.png",
+        "selectedIconPath": "assets/tab-assets-active.png"
+      },
+      {
+        "pagePath": "pages/security/security",
+        "text": "退休保障",
+        "iconPath": "assets/tab-security.png",
+        "selectedIconPath": "assets/tab-security-active.png"
+      },
+      {
+        "pagePath": "pages/route/route",
+        "text": "路线",
+        "iconPath": "assets/tab-route.png",
+        "selectedIconPath": "assets/tab-route-active.png"
+      },
+      {
+        "pagePath": "pages/drags/drags",
+        "text": "拖累项",
+        "iconPath": "assets/tab-drags.png",
+        "selectedIconPath": "assets/tab-drags-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

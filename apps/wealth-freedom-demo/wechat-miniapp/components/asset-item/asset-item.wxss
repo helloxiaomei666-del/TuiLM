@@ -1,0 +1,33 @@
+.asset-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid #edf2ef;
+}
+
+.asset-item:last-child {
+  border-bottom: 0;
+}
+
+.asset-name {
+  display: block;
+  color: #071916;
+  font-size: 28rpx;
+  font-weight: 850;
+}
+
+.asset-meta {
+  display: block;
+  margin-top: 6rpx;
+  color: #6a7772;
+  font-size: 23rpx;
+}
+
+.asset-value {
+  flex: none;
+  color: #071916;
+  font-size: 28rpx;
+  font-weight: 900;
+}

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "资产",
+  "usingComponents": {
+    "asset-item": "/components/asset-item/asset-item"
+  }
+}

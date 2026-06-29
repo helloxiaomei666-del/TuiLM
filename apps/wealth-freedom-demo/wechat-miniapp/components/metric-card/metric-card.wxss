@@ -1,0 +1,23 @@
+.metric-card {
+  min-height: 156rpx;
+  padding: 24rpx;
+  border: 1rpx solid rgba(16, 24, 40, 0.08);
+  border-radius: 14rpx;
+  background: #ffffff;
+}
+
+.metric-label,
+.metric-note {
+  display: block;
+  color: #6a7772;
+  font-size: 24rpx;
+  font-weight: 750;
+}
+
+.metric-value {
+  display: block;
+  margin: 10rpx 0 6rpx;
+  color: #071916;
+  font-size: 34rpx;
+  font-weight: 950;
+}

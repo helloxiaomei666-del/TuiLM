@@ -1,0 +1,82 @@
+<view class="page route-page">
+  <view class="page-title route-title-block">
+    <text class="eyebrow">未来资产路线</text>
+    <text class="title">{{freedomDate}}</text>
+    <text class="route-subtitle">用当前资产、现金流和回测假设，查看离目标还有多远。</text>
+  </view>
+
+  <view class="card route-hero">
+    <view class="hero-head">
+      <view>
+        <text class="hero-label">预计达成</text>
+        <text class="hero-title">{{freedomDate}}</text>
+      </view>
+      <text class="reach-chip">{{chart.reachedText}}</text>
+    </view>
+
+    <view class="chart-panel">
+      <view class="target-line" style="bottom: {{chart.targetLineBottom}}">
+        <text>目标 {{chart.targetText}}</text>
+      </view>
+      <view class="chart-bars">
+        <view wx:for="{{chart.points}}" wx:key="index" class="chart-point {{item.stateClass}}">
+          <view class="bar-box">
+            <view class="bar-fill" style="height: {{item.barHeight}}"></view>
+            <text wx:if="{{item.markerText}}" class="point-marker">{{item.markerText}}</text>
+          </view>
+          <text class="point-title">{{item.title}}</text>
+          <text class="point-value">{{item.assetText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="route-control">
+      <view class="control-head">
+        <text>拖动选择年份</text>
+        <text>{{selected.title}}</text>
+      </view>
+      <slider min="0" max="{{maxYearIndex}}" step="1" value="{{selectedIndex}}" activeColor="#0f766e" bindchanging="onYearChanging" bindchange="onYearChange" />
+    </view>
+
+    <view class="selected-grid">
+      <view class="selected-tile primary">
+        <text class="selected-label">预计资产</text>
+        <text class="selected-value">{{selected.assetText}}</text>
+      </view>
+      <view class="selected-tile">
+        <text class="selected-label">目标差额</text>
+        <text class="selected-value">{{selected.gapText}}</text>
+      </view>
+      <view class="selected-tile">
+        <text class="selected-label">当年每月可投</text>
+        <text class="selected-value">{{selected.netInputText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card route-diagnosis">
+    <view class="list-head">
+      <text>{{diagnosis.title}}</text>
+      <text>随年份更新</text>
+    </view>
+    <view class="diagnosis-cards">
+      <view wx:for="{{diagnosis.cards}}" wx:key="label" class="diagnosis-card">
+        <text class="diagnosis-label">{{item.label}}</text>
+        <text class="diagnosis-value">{{item.value}}</text>
+        <text class="diagnosis-note">{{item.note}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card trajectory-panel">
+    <view class="trajectory-head">
+      <text>最近 5 年资产轨迹</text>
+      <text>{{diagnosis.trajectory.length}} 年</text>
+    </view>
+    <view wx:for="{{diagnosis.trajectory}}" wx:key="title" class="trajectory-row">
+      <text class="trajectory-title">{{item.title}}</text>
+      <text class="trajectory-asset">{{item.assetText}}</text>
+      <text class="trajectory-input">{{item.netInputText}} / 月</text>
+    </view>
+  </view>
+</view>

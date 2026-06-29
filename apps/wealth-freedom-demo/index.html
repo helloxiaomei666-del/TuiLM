@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>退了吗 Demo</title>
+    <script>
+      document.documentElement.classList.toggle(
+        "preview-mode",
+        new URLSearchParams(window.location.search).get("preview") === "phone",
+      );
+    </script>
+    <link rel="stylesheet" href="styles.css?v=20260608-tabs2" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">退了吗 · 个人财富计算器 Demo</p>
+          <h1>今天，您退休了吗？</h1>
+          <p class="lede">
+            用过去的工资和资产数据回测增长率，再模拟离退休自由还有多远、资产路线、目标缺口和关键拖累项。
+          </p>
+        </div>
+        <div class="hero-card" aria-live="polite">
+          <div class="progress-ring" id="progressRing">
+            <span id="progressPercent">0%</span>
+          </div>
+          <div>
+            <p class="card-label">预计退休日期</p>
+            <strong id="freedomDate">计算中</strong>
+            <span id="freedomAge">-</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <form class="input-panel is-active" id="calculatorForm" data-overview-only>
+          <div class="panel-heading">
+            <h2>输入你的数据</h2>
+            <div class="panel-actions">
+              <button type="button" id="resetButton">恢复示例</button>
+              <button type="button" id="clearDataButton">清除本地数据</button>
+            </div>
+          </div>
+
+          <details class="form-block" open>
+            <summary>基础目标</summary>
+            <div class="field-grid">
+              <label>
+                年龄
+                <input name="age" type="number" min="16" max="80" step="1" value="28" />
+              </label>
+              <label>
+                退休自由目标
+                <input name="target" type="number" min="100000" step="10000" value="3000000" />
+              </label>
+              <label>
+                当前现金/存款
+                <input name="cash" type="number" min="0" step="1000" value="120000" />
+              </label>
+              <label>
+                当前投资账户市值
+                <input name="investments" type="number" min="0" step="1000" value="180000" />
+              </label>
+            </div>
+          </details>
+
+          <details class="form-block">
+            <summary>当前现金流</summary>
+            <div class="field-grid">
+              <label>
+                当前月工资
+                <input name="salary" type="number" min="0" step="500" value="18000" />
+              </label>
+              <label>
+                月副业收入
+                <input name="sideIncome" type="number" min="0" step="500" value="2000" />
+              </label>
+              <label>
+                月生活支出
+                <input name="livingCost" type="number" min="0" step="500" value="8500" />
+              </label>
+            </div>
+          </details>
+
+          <details class="form-block">
+            <summary><span>工资回测</span><em id="salaryBacktestResult">-</em></summary>
+            <div class="history-grid compact">
+              <label>
+                3年前
+                <input name="salaryYear3" type="number" min="0" step="500" value="14500" />
+              </label>
+              <label>
+                2年前
+                <input name="salaryYear2" type="number" min="0" step="500" value="15800" />
+              </label>
+              <label>
+                1年前
+                <input name="salaryYear1" type="number" min="0" step="500" value="17000" />
+              </label>
+            </div>
+          </details>
+
+          <details class="form-block">
+            <summary><span>投资回测</span><em id="returnBacktestResult">-</em></summary>
+            <p class="hint">填投资账户“年初市值、年末市值、当年净投入”，系统估算历史年化表现。</p>
+            <div class="backtest-table">
+              <div class="table-head">年份</div>
+              <div class="table-head">年初</div>
+              <div class="table-head">年末</div>
+              <div class="table-head">净投入</div>
+
+              <div class="row-label">前3年</div>
+              <input name="assetStart3" type="number" min="0" step="1000" value="60000" />
+              <input name="assetEnd3" type="number" min="0" step="1000" value="92000" />
+              <input name="assetContribution3" type="number" step="1000" value="28000" />
+
+              <div class="row-label">前2年</div>
+              <input name="assetStart2" type="number" min="0" step="1000" value="92000" />
+              <input name="assetEnd2" type="number" min="0" step="1000" value="134000" />
+              <input name="assetContribution2" type="number" step="1000" value="36000" />
+
+              <div class="row-label">前1年</div>
+              <input name="assetStart1" type="number" min="0" step="1000" value="134000" />
+              <input name="assetEnd1" type="number" min="0" step="1000" value="180000" />
+              <input name="assetContribution1" type="number" step="1000" value="39000" />
+            </div>
+          </details>
+        </form>
+
+        <section class="results-panel" id="resultsPanel">
+          <section class="health-overview app-page is-active" id="healthOverview" data-app-page="overview">
+            <article class="health-hero-summary">
+              <div>
+                <span>今天状态</span>
+                <strong id="overviewProgressValue">-</strong>
+                <p id="overviewStatusText">-</p>
+              </div>
+              <div class="health-hero-meta">
+                <span>预计退休时间</span>
+                <strong id="overviewFreedomDate">-</strong>
+                <em id="overviewGapValue">-</em>
+              </div>
+            </article>
+
+            <div class="health-metric-strip">
+              <article>
+                <span>可投资资产</span>
+                <strong id="currentAssets">-</strong>
+              </article>
+              <article>
+                <span>每月可投入</span>
+                <strong id="monthlyInvestable">-</strong>
+              </article>
+              <article>
+                <span>回测收益率</span>
+                <strong id="backtestedReturn">-</strong>
+              </article>
+              <article>
+                <span>工资增长率</span>
+                <strong id="backtestedSalaryGrowth">-</strong>
+              </article>
+            </div>
+
+            <div class="health-section-grid">
+              <button class="health-section-card" type="button" data-jump-page="assets">
+                <span>可投资资产</span>
+                <strong id="overviewInvestAssetValue">-</strong>
+                <p id="overviewAssetMix">现金、基金、债券、商品</p>
+              </button>
+              <button class="health-section-card" type="button" data-jump-page="security">
+                <span>保障账户</span>
+                <strong id="overviewSecurityValue">-</strong>
+                <p id="overviewSecuritySupport">-</p>
+              </button>
+              <button class="health-section-card" type="button" data-jump-page="drags">
+                <span>现金流健康</span>
+                <strong id="overviewCashflowStatus">-</strong>
+                <p id="overviewCashflowCopy">-</p>
+              </button>
+              <button class="health-section-card" type="button" data-jump-page="assets">
+                <span>今日资产变化</span>
+                <strong id="overviewTodayChange">-</strong>
+                <p>仅使用 Demo mock 行情</p>
+              </button>
+              <button class="health-section-card" type="button" data-jump-page="route">
+                <span>退休路线</span>
+                <strong id="overviewRouteEta">-</strong>
+                <p>查看未来资产曲线</p>
+              </button>
+              <article class="health-section-card health-reminder-card">
+                <span>重点提醒</span>
+                <strong id="overviewReminderTitle">-</strong>
+                <p id="overviewReminder">-</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="asset-overview-card app-page" id="assetOverview" data-app-page="assets">
+            <div class="section-title">
+              <div>
+                <h2>可投资资产</h2>
+                <p>现金、基金、债券、商品仍按持仓市值计入退休进度，保障账户单独展示。</p>
+              </div>
+              <div class="asset-actions">
+                <span id="assetTodayPnl">-</span>
+                <button type="button" id="refreshQuotesButton">刷新行情</button>
+              </div>
+            </div>
+            <div class="asset-map">
+              <div class="asset-donut" id="assetDonut" aria-label="资产配置图"></div>
+              <div class="asset-summary">
+                <span>可投资资产</span>
+                <strong id="assetTotalValue">-</strong>
+                <p id="assetAiSignal">-</p>
+              </div>
+            </div>
+            <div class="asset-impact" id="assetImpact">今日资产变化会同步计入退休进度。</div>
+            <div class="holding-list" id="holdingList"></div>
+            <form class="asset-entry-form" id="holdingForm">
+              <div class="asset-entry-head">
+                <h3>添加资产</h3>
+                <span>第一版先手动录入</span>
+              </div>
+              <label>
+                资产类型
+                <select name="holdingType" id="holdingType">
+                  <option value="cash">现金</option>
+                  <option value="stock">基金</option>
+                  <option value="bond">债券</option>
+                  <option value="commodity">商品</option>
+                </select>
+              </label>
+              <div class="asset-entry-grid">
+                <label data-field="market">
+                  名称
+                  <input name="holdingName" type="text" value="沪深300指数基金" />
+                </label>
+                <label data-field="market">
+                  导入方式
+                  <select name="holdingInputMode" id="holdingInputMode">
+                    <option value="manual">手动录入</option>
+                    <option value="screenshot">截图导入</option>
+                  </select>
+                </label>
+                <div class="screenshot-import" id="screenshotImport" data-field="market" hidden>
+                  <label class="screenshot-picker">
+                    <input name="holdingScreenshot" id="holdingScreenshot" type="file" accept="image/*" />
+                    <span>选择资产截图</span>
+                    <small>支持基金、债券、黄金等持仓页截图；当前 Demo 会模拟 OCR 回填，需确认后手动保存。</small>
+                  </label>
+                  <div class="screenshot-preview" id="screenshotPreview" hidden>
+                    <img alt="资产截图预览" />
+                    <p id="screenshotStatus">等待识别</p>
+                  </div>
+                  <div class="ocr-confirmation" id="ocrConfirmation" hidden>
+                    <div>
+                      <span>待确认识别结果</span>
+                      <strong>确认后才会写入表单并允许保存</strong>
+                    </div>
+                    <dl id="ocrResultList"></dl>
+                    <p>当前为 Demo 模拟 OCR。真实版必须由用户确认后保存，未确认结果不得进入本地存储。</p>
+                    <div class="ocr-actions">
+                      <button type="button" id="confirmOcrButton">确认并回填</button>
+                      <button type="button" id="cancelOcrButton">取消识别结果</button>
+                    </div>
+                  </div>
+                </div>
+                <label data-field="market">
+                  标的类型
+                  <select name="holdingInstrument" id="holdingInstrument">
+                    <option value="fund" data-asset-type="stock">基金</option>
+                    <option value="etf" data-asset-type="stock">ETF</option>
+                    <option value="stock" data-asset-type="stock">股票型基金</option>
+                    <option value="bondFund" data-asset-type="bond">债券基金</option>
+                    <option value="bond" data-asset-type="bond">债券</option>
+                    <option value="gold" data-asset-type="commodity">黄金</option>
+                    <option value="commodityFund" data-asset-type="commodity">商品基金</option>
+                  </select>
+                </label>
+                <label data-field="market">
+                  代码 / 识别码
+                  <input name="holdingCode" type="text" value="000300" />
+                </label>
+                <label data-field="market">
+                  持有数量 / 份额
+                  <input name="holdingQuantity" type="number" min="0" step="0.01" value="1000" />
+                </label>
+                <label data-field="market">
+                  成本价
+                  <input name="holdingCostPrice" type="number" min="0" step="0.0001" value="1.2" />
+                </label>
+                <label data-field="market">
+                  当前价
+                  <input name="holdingCurrentPrice" type="number" min="0" step="0.0001" value="1.25" />
+                </label>
+                <label data-field="cash" hidden>
+                  现金金额
+                  <input name="cashAmount" type="number" min="0" step="100" value="10000" />
+                </label>
+              </div>
+              <button type="submit">保存到可投资资产</button>
+            </form>
+          </section>
+
+          <section class="security-card app-page" id="securityAccounts" data-app-page="security">
+            <div class="section-title">
+              <div>
+                <h2>保障账户</h2>
+                <p>社保、公积金、补充公积金和年金不计入可投资资产，但会参与退休缺口、房贷现金流和退休时间测算。</p>
+              </div>
+              <span id="securitySupportBadge">-</span>
+            </div>
+
+            <div class="security-summary">
+              <article class="security-total-card">
+                <span>保障账户总额</span>
+                <strong id="securityTotalValue">-</strong>
+                <p id="securitySupportCopy">-</p>
+              </article>
+              <article class="security-progress-card">
+                <div>
+                  <span>养老金缴费进度</span>
+                  <strong id="pensionYearsText">-</strong>
+                </div>
+                <div class="security-progress-track" aria-label="养老金缴费进度">
+                  <i id="pensionProgressBar"></i>
+                </div>
+                <p id="pensionProgressText">-</p>
+              </article>
+            </div>
+
+            <div class="security-note">
+              保障账户并非可自由支配资产。这里按用户主动录入的预计月领取、冲还贷金额和账户余额，演示它们如何改变退休缺口；不读取社保或公积金数据，也不构成养老金测算结果。
+            </div>
+
+            <div class="security-account-list" id="securityAccountList"></div>
+
+            <form class="security-entry-form" id="securityForm">
+              <div class="asset-entry-head">
+                <h3>录入保障账户</h3>
+                <span>用户主动填写，Demo 不读取社保或公积金数据</span>
+              </div>
+              <div class="security-entry-grid">
+                <fieldset>
+                  <legend>养老保险</legend>
+                  <label>
+                    当前账户余额
+                    <input name="pensionBalance" type="number" min="0" step="100" value="120000" />
+                  </label>
+                  <label>
+                    已缴纳年限
+                    <input name="pensionYearsPaid" type="number" min="0" max="60" step="0.5" value="12" />
+                  </label>
+                  <label>
+                    每月个人缴纳
+                    <input name="pensionPersonalMonthly" type="number" min="0" step="50" value="900" />
+                  </label>
+                  <label>
+                    每月单位缴纳
+                    <input name="pensionEmployerMonthly" type="number" min="0" step="50" value="1800" />
+                  </label>
+                  <label>
+                    预计退休后月领取
+                    <input name="pensionEstimatedMonthlyBenefit" type="number" min="0" step="100" value="2600" />
+                  </label>
+                </fieldset>
+
+                <fieldset>
+                  <legend>公积金</legend>
+                  <label>
+                    当前余额
+                    <input name="housingFundBalance" type="number" min="0" step="100" value="85000" />
+                  </label>
+                  <label>
+                    每月个人缴纳
+                    <input name="housingFundPersonalMonthly" type="number" min="0" step="50" value="1200" />
+                  </label>
+                  <label>
+                    每月单位缴纳
+                    <input name="housingFundEmployerMonthly" type="number" min="0" step="50" value="1200" />
+                  </label>
+                  <label>
+                    每月冲还房贷
+                    <input name="housingFundLoanOffsetMonthly" type="number" min="0" step="100" value="0" />
+                  </label>
+                </fieldset>
+
+                <fieldset>
+                  <legend>补充公积金</legend>
+                  <label>
+                    当前余额
+                    <input name="supplementalHousingFundBalance" type="number" min="0" step="100" value="20000" />
+                  </label>
+                  <label>
+                    每月个人缴纳
+                    <input name="supplementalHousingFundPersonalMonthly" type="number" min="0" step="50" value="400" />
+                  </label>
+                  <label>
+                    每月单位缴纳
+                    <input name="supplementalHousingFundEmployerMonthly" type="number" min="0" step="50" value="400" />
+                  </label>
+                  <label>
+                    每月冲还房贷
+                    <input name="supplementalHousingFundLoanOffsetMonthly" type="number" min="0" step="100" value="0" />
+                  </label>
+                </fieldset>
+
+                <fieldset>
+                  <legend>企业年金</legend>
+                  <label>
+                    当前余额
+                    <input name="enterpriseAnnuityBalance" type="number" min="0" step="100" value="30000" />
+                  </label>
+                  <label>
+                    每月个人缴纳
+                    <input name="enterpriseAnnuityPersonalMonthly" type="number" min="0" step="50" value="200" />
+                  </label>
+                  <label>
+                    每月单位缴纳
+                    <input name="enterpriseAnnuityEmployerMonthly" type="number" min="0" step="50" value="300" />
+                  </label>
+                  <label>
+                    预计退休后月领取
+                    <input name="enterpriseAnnuityEstimatedMonthlyBenefit" type="number" min="0" step="100" value="300" />
+                  </label>
+                </fieldset>
+
+                <fieldset>
+                  <legend>职业年金</legend>
+                  <label>
+                    当前余额
+                    <input name="occupationalAnnuityBalance" type="number" min="0" step="100" value="0" />
+                  </label>
+                  <label>
+                    每月个人缴纳
+                    <input name="occupationalAnnuityPersonalMonthly" type="number" min="0" step="50" value="0" />
+                  </label>
+                  <label>
+                    每月单位缴纳
+                    <input name="occupationalAnnuityEmployerMonthly" type="number" min="0" step="50" value="0" />
+                  </label>
+                  <label>
+                    预计退休后月领取
+                    <input name="occupationalAnnuityEstimatedMonthlyBenefit" type="number" min="0" step="100" value="0" />
+                  </label>
+                </fieldset>
+              </div>
+              <button type="submit">更新保障账户</button>
+            </form>
+          </section>
+
+          <section class="chart-card app-page" id="routeSection" data-app-page="route">
+            <div class="section-title">
+              <div>
+                <h2>未来资产路线图</h2>
+                <p id="chartCaption">-</p>
+              </div>
+              <span id="gapBadge">-</span>
+            </div>
+            <div class="route-chart" id="assetChart" role="img" aria-label="未来资产路线图"></div>
+            <div class="chart-inspector" id="chartInspector"></div>
+            <div class="route-legend">
+              <span><i class="legend-dot asset"></i>预计资产</span>
+              <span><i class="legend-line compare"></i>对比路线</span>
+              <span><i class="legend-line"></i>退休自由目标线</span>
+              <span><i class="legend-dot hit"></i>预计达成点</span>
+            </div>
+          </section>
+
+          <div class="feature-row app-page" data-app-page="drags">
+            <section class="insight-card drag-card">
+              <div class="section-title">
+                <h2>关键拖累项</h2>
+                <span id="dragScore">-</span>
+              </div>
+              <form class="manual-drag-form" id="manualDragForm">
+                <div class="manual-drag-head">
+                  <h3>手动添加拖累项</h3>
+                  <span>会参与退休时间模拟</span>
+                </div>
+                <div class="manual-drag-grid">
+                  <label>
+                    类型
+                    <select name="manualDragCategory">
+                      <option value="medical">医疗</option>
+                      <option value="mortgage">房贷</option>
+                      <option value="car">车贷</option>
+                      <option value="other">其他</option>
+                    </select>
+                  </label>
+                  <label>
+                    每月金额
+                    <input name="manualDragAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="2000" />
+                  </label>
+                </div>
+                <label>
+                  说明
+                  <input name="manualDragTitle" type="text" placeholder="其他类型可填写名称，例如：赡养支出" />
+                </label>
+                <input name="manualDragDetail" type="hidden" value="" />
+                <button type="submit">加入拖累分析</button>
+              </form>
+              <div id="dragList" class="drag-list"></div>
+            </section>
+
+            <section class="insight-card">
+              <div class="section-title">
+                <h2>计算提示</h2>
+                <span>对退休日期的影响</span>
+              </div>
+              <div id="scenarioList" class="scenario-list"></div>
+            </section>
+          </div>
+
+          <section class="report-card app-page is-active" id="shareReport" data-app-page="overview">
+            <p class="report-kicker">我的退了吗报告</p>
+            <h2 id="reportTitle">-</h2>
+            <p id="reportSummary">-</p>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <nav class="mobile-tabbar" aria-label="手机端主导航">
+      <button type="button" class="is-active" data-page="overview">总览</button>
+      <button type="button" data-page="assets">资产</button>
+      <button type="button" data-page="security">保障</button>
+      <button type="button" data-page="route">路线</button>
+      <button type="button" data-page="drags">拖累项</button>
+    </nav>
+
+    <aside class="device-preview" aria-label="手机样机实时预览">
+      <div class="device-preview-header">
+        <div>
+          <strong>手机实时预览</strong>
+          <span>iPhone 15 视口</span>
+        </div>
+        <a href="phone.html" target="_blank" rel="noreferrer">单独打开</a>
+      </div>
+      <div class="phone-frame">
+        <div class="phone-speaker"></div>
+        <iframe id="phonePreview" data-src="phone.html" title="手机端实时预览"></iframe>
+        <div class="home-indicator"></div>
+      </div>
+    </aside>
+
+    <script src="calculation-core.js?v=20260608-tabs2"></script>
+    <script src="app.js?v=20260608-tabs2"></script>
+  </body>
+</html>

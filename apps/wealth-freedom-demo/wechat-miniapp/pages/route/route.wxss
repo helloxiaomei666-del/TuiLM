@@ -1,0 +1,305 @@
+.route-page {
+  padding-bottom: 136rpx;
+}
+
+.route-title-block .title {
+  line-height: 1.08;
+}
+
+.route-subtitle {
+  display: block;
+  margin-top: 10rpx;
+  color: #6a7772;
+  font-size: 24rpx;
+  font-weight: 740;
+  line-height: 1.38;
+}
+
+.route-hero,
+.route-diagnosis,
+.trajectory-panel {
+  padding: 28rpx;
+}
+
+.route-hero {
+  background: #ffffff;
+}
+
+.hero-head,
+.control-head,
+.list-head,
+.trajectory-head,
+.trajectory-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.hero-head {
+  align-items: flex-start;
+  margin-bottom: 22rpx;
+}
+
+.hero-label,
+.hero-title,
+.reach-chip,
+.control-head text,
+.selected-label,
+.selected-value,
+.list-head text,
+.diagnosis-card text,
+.trajectory-head text,
+.trajectory-row text,
+.point-title,
+.point-value,
+.point-marker,
+.target-line text {
+  display: block;
+}
+
+.hero-label,
+.control-head text:first-child,
+.selected-label,
+.list-head text:last-child,
+.diagnosis-label,
+.diagnosis-note,
+.trajectory-head text:last-child,
+.trajectory-title,
+.trajectory-input,
+.point-title,
+.point-value,
+.target-line text {
+  color: #6a7772;
+  font-size: 23rpx;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.hero-title {
+  margin-top: 6rpx;
+  color: #071916;
+  font-size: 48rpx;
+  font-weight: 950;
+  line-height: 1.05;
+}
+
+.reach-chip {
+  flex: none;
+  max-width: 260rpx;
+  padding: 10rpx 16rpx;
+  border-radius: 999rpx;
+  background: #e6f3ee;
+  color: #0f766e;
+  font-size: 22rpx;
+  font-weight: 850;
+  line-height: 1.3;
+  text-align: right;
+}
+
+.chart-panel {
+  position: relative;
+  min-height: 360rpx;
+  padding: 34rpx 12rpx 20rpx;
+  border: 1rpx solid #edf2ef;
+  border-radius: 16rpx;
+  background: #f8fbfa;
+  overflow: hidden;
+}
+
+.target-line {
+  position: absolute;
+  left: 18rpx;
+  right: 18rpx;
+  z-index: 1;
+  border-top: 2rpx dashed rgba(180, 35, 24, 0.38);
+}
+
+.target-line text {
+  display: inline-block;
+  margin-top: -24rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
+  background: #fff7ed;
+  color: #9f1d14;
+  font-size: 20rpx;
+  font-weight: 850;
+}
+
+.chart-bars {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8rpx;
+  min-height: 300rpx;
+}
+
+.chart-point {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7rpx;
+}
+
+.bar-box {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 214rpx;
+  border-radius: 999rpx 999rpx 10rpx 10rpx;
+  background: rgba(15, 118, 110, 0.08);
+  overflow: hidden;
+}
+
+.bar-fill {
+  width: 100%;
+  min-height: 12rpx;
+  border-radius: inherit;
+  background: #8fd8ca;
+}
+
+.point-marker {
+  position: absolute;
+  top: 8rpx;
+  left: 50%;
+  padding: 3rpx 8rpx;
+  border-radius: 999rpx;
+  background: #ffffff;
+  color: #0f766e;
+  font-size: 18rpx;
+  font-weight: 900;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.point-title {
+  color: #48645d;
+  font-size: 20rpx;
+  text-align: center;
+}
+
+.point-value {
+  color: #071916;
+  font-size: 20rpx;
+  font-weight: 850;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.route-control {
+  margin-top: 22rpx;
+  padding: 18rpx 4rpx 0;
+}
+
+.control-head text:last-child {
+  color: #071916;
+  font-size: 24rpx;
+  font-weight: 900;
+}
+
+.selected-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+  margin-top: 16rpx;
+}
+
+.selected-tile {
+  flex: 1 1 260rpx;
+  min-width: 0;
+  min-height: 116rpx;
+  padding: 18rpx;
+  border: 1rpx solid #edf2ef;
+  border-radius: 16rpx;
+  background: #ffffff;
+}
+
+.selected-tile.primary {
+  background: #eef8f4;
+}
+
+.selected-value {
+  margin-top: 8rpx;
+  color: #071916;
+  font-size: 29rpx;
+  font-weight: 950;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.route-diagnosis,
+.trajectory-panel {
+  margin-top: 20rpx;
+}
+
+.list-head {
+  align-items: flex-start;
+  margin-bottom: 14rpx;
+}
+
+.list-head text:first-child,
+.trajectory-head text:first-child {
+  color: #071916;
+  font-size: 31rpx;
+  font-weight: 950;
+}
+
+.diagnosis-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.diagnosis-card {
+  padding: 20rpx;
+  border: 1rpx solid #edf2ef;
+  border-radius: 14rpx;
+  background: #fbfdfc;
+}
+
+.diagnosis-value {
+  margin-top: 8rpx;
+  color: #071916;
+  font-size: 30rpx;
+  font-weight: 950;
+  line-height: 1.2;
+}
+
+.diagnosis-note {
+  margin-top: 8rpx;
+  line-height: 1.45;
+}
+
+.trajectory-head {
+  margin-bottom: 10rpx;
+}
+
+.trajectory-row {
+  min-height: 68rpx;
+  border-bottom: 1rpx solid #edf2ef;
+}
+
+.trajectory-row.last {
+  border-bottom: 0;
+}
+
+.trajectory-row text {
+  flex: 1;
+  min-width: 0;
+}
+
+.trajectory-asset {
+  color: #071916;
+  font-size: 26rpx;
+  font-weight: 900;
+  text-align: center;
+}
+
+.trajectory-input {
+  text-align: right;
+}

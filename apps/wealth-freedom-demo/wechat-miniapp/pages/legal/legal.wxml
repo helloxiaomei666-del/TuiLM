@@ -1,0 +1,14 @@
+<view class="page legal-page">
+  <view class="page-title">
+    <text class="eyebrow">使用边界</text>
+    <text class="title">隐私与免责声明</text>
+  </view>
+
+  <view class="card legal-card" wx:for="{{sections}}" wx:key="title">
+    <text class="section-title">{{item.title}}</text>
+    <view class="legal-item" wx:for="{{item.items}}" wx:for-item="line" wx:key="*this">
+      <text class="bullet">•</text>
+      <text>{{line}}</text>
+    </view>
+  </view>
+</view>

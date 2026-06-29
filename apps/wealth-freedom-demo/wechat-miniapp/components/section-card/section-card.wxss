@@ -1,0 +1,33 @@
+.section-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  min-height: 132rpx;
+  padding: 24rpx;
+  border: 1rpx solid rgba(16, 24, 40, 0.08);
+  border-radius: 14rpx;
+  background: #ffffff;
+}
+
+.section-title {
+  display: block;
+  color: #071916;
+  font-size: 28rpx;
+  font-weight: 900;
+}
+
+.section-note {
+  display: block;
+  margin-top: 6rpx;
+  color: #6a7772;
+  font-size: 23rpx;
+  line-height: 1.4;
+}
+
+.section-value {
+  flex: none;
+  color: #0f766e;
+  font-size: 30rpx;
+  font-weight: 950;
+}

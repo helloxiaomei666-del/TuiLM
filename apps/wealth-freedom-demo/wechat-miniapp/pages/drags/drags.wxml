@@ -1,0 +1,99 @@
+<view class="page drag-page">
+  <view class="page-title">
+    <text class="eyebrow">关键拖累项</text>
+    <text class="title">识别最影响退休时间的长期支出</text>
+  </view>
+
+  <view class="card drag-hero">
+    <view class="summary-head">
+      <view class="summary-main">
+        <text class="summary-label">每月拖累项合计</text>
+        <text class="summary-value">{{summary.totalText}}</text>
+      </view>
+      <text class="impact-chip">可提前 {{summary.savedMonthsText}}</text>
+    </view>
+    <text class="summary-headline">{{summary.headlineText}}</text>
+    <text class="summary-note">{{summary.actionText}}</text>
+
+    <view class="impact-metrics">
+      <view class="impact-metric">
+        <text class="metric-label">拖累项数量</text>
+        <text class="metric-value">{{summary.countText}}</text>
+      </view>
+      <view class="impact-metric">
+        <text class="metric-label">优化空间</text>
+        <text class="metric-value">{{summary.savedMonthsText}}</text>
+      </view>
+    </view>
+
+    <view class="priority-card {{summary.topDragClass}}">
+      <view class="priority-main">
+        <text class="priority-label">优先处理</text>
+        <text class="priority-title">{{summary.topDragTitle}}</text>
+        <text class="priority-note">{{summary.topDragImpactText}}</text>
+      </view>
+      <text class="priority-amount">{{summary.topDragAmountText}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{summary.categoryRows.length}}" class="card category-panel">
+    <view class="list-head">
+      <text>分类占比</text>
+      <text>{{summary.countText}}</text>
+    </view>
+    <view class="category-row" wx:for="{{summary.categoryRows}}" wx:key="type">
+      <view class="category-info">
+        <text class="category-title">{{item.label}}</text>
+        <text class="category-meta">{{item.amountText}} · {{item.countText}} · {{item.shareText}}</text>
+      </view>
+      <view class="category-track">
+        <view class="category-fill {{item.className}}" style="width: {{item.barWidth}};"></view>
+      </view>
+    </view>
+  </view>
+
+  <view id="dragEditForm" class="card drag-form">
+    <view class="list-head">
+      <text>{{formTitle}}</text>
+      <text>{{selectedCategoryLabel}}</text>
+    </view>
+    <label class="form-label">
+      类型
+      <picker range="{{categoryOptions}}" range-key="label" value="{{selectedCategoryIndex}}" bindchange="onCategoryChange">
+        <view class="picker-field">{{selectedCategoryLabel}}</view>
+      </picker>
+    </label>
+    <label class="form-label">
+      每月金额
+      <input class="form-input" data-field="amount" type="digit" value="{{form.amount}}" bindinput="onFormInput" placeholder="例如：123.45" />
+    </label>
+    <label class="form-label">
+      名称 / 备注
+      <input class="form-input" data-field="title" value="{{form.title}}" bindinput="onFormInput" placeholder="其他类型可填写名称" />
+    </label>
+    <button class="primary-button" bindtap="saveDrag">{{formActionText}}</button>
+    <button wx:if="{{editingDragId}}" class="secondary-button cancel-edit-button" bindtap="cancelEdit">取消修改</button>
+  </view>
+
+  <view class="card drag-list">
+    <view class="list-head">
+      <text>影响明细</text>
+      <text>{{drags.length}} 项</text>
+    </view>
+    <view wx:if="{{!drags.length}}" class="empty-state">还没有拖累项，添加一项长期支出后会显示影响。</view>
+    <view wx:for="{{drags}}" wx:key="id" class="drag-row {{editingDragId === item.id ? 'drag-row-editing' : ''}}">
+      <view class="drag-main">
+        <view class="drag-title-row">
+          <text class="drag-title">{{item.title}}</text>
+          <text class="drag-impact-pill {{item.impactClass}}">{{item.savedMonthsText}}</text>
+        </view>
+        <text class="drag-meta">{{item.categoryLabel}} · {{item.amountText}} / 月</text>
+        <text class="drag-impact">{{item.impactText}}</text>
+      </view>
+      <view class="drag-actions">
+        <view class="edit-chip" data-id="{{item.id}}" bindtap="editDrag">修改</view>
+        <view class="delete-chip" data-id="{{item.id}}" bindtap="deleteDrag">删除</view>
+      </view>
+    </view>
+  </view>
+</view>

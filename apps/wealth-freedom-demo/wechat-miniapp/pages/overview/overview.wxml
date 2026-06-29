@@ -1,0 +1,169 @@
+<view class="page overview-page">
+  <view class="overview-head">
+    <view>
+      <text class="eyebrow">退了吗</text>
+      <text class="title">退休状态总览</text>
+    </view>
+    <button class="text-link" bindtap="openLegal">隐私与免责声明</button>
+  </view>
+
+  <view class="hero-panel cashflow-hero">
+    <view class="hero-top">
+      <text class="hero-label">现金流退休率</text>
+      <text class="status-pill">{{overview.cashflowStatusLabel}}</text>
+    </view>
+    <text class="cashflow-rate">{{overview.cashflowRetirementRateText}}</text>
+    <text class="cashflow-headline">{{overview.cashflowHeadlineText}}</text>
+    <view class="progress-track cashflow-track">
+      <view class="progress-fill" style="width: {{overview.cashflowRetirementProgressWidth}}"></view>
+    </view>
+    <text class="hero-note">{{overview.cashflowDenominatorText}}</text>
+    <view class="cashflow-meta-row">
+      <view class="cashflow-meta">
+        <text class="cashflow-meta-label">完全被动收入</text>
+        <text class="cashflow-meta-value">{{overview.monthlyPassiveIncomeText}}/月</text>
+      </view>
+      <view class="cashflow-meta">
+        <text class="cashflow-meta-label">被动收入缺口</text>
+        <text class="cashflow-meta-value">{{overview.passiveIncomeGapText}}/月</text>
+      </view>
+    </view>
+    <text class="cashflow-disclosure">{{overview.cashflowDisclosureText}}</text>
+  </view>
+
+  <view class="four-rate-grid">
+    <view class="rate-card">
+      <text class="rate-card-label">资产退休率</text>
+      <text class="rate-card-value">{{overview.assetRetirementRateText}}</text>
+      <text class="rate-card-note">目标资产积累进度</text>
+    </view>
+    <view class="rate-card">
+      <text class="rate-card-label">安全垫月数</text>
+      <text class="rate-card-value">{{overview.runwayMonthsText}}</text>
+      <text class="rate-card-note">现金可覆盖当前支出</text>
+    </view>
+    <view class="rate-card">
+      <text class="rate-card-label">劳动依赖率</text>
+      <text class="rate-card-value">{{overview.laborDependenceRateText}}</text>
+      <text class="rate-card-note">仍需其他收入支持</text>
+    </view>
+  </view>
+
+  <view class="legacy-panel">
+    <view class="legacy-block legacy-primary">
+      <text class="metric-label">预计退休时间</text>
+      <text class="legacy-value">{{overview.freedomDate}}</text>
+      <text class="metric-note">{{overview.freedomAge}} · {{overview.statusText}}</text>
+    </view>
+    <view class="legacy-block">
+      <text class="metric-label">可投资资产</text>
+      <text class="legacy-value">{{overview.currentAssetsText}}</text>
+      <text class="metric-note">今日 {{overview.todayPnlText}}</text>
+    </view>
+    <view class="legacy-block">
+      <text class="metric-label">每月可投入</text>
+      <text class="legacy-value">{{overview.monthlyInvestableText}}</text>
+      <text class="metric-note">目标差额：{{overview.statusText}}</text>
+    </view>
+  </view>
+
+  <view class="next-panel">
+    <view class="panel-head">
+      <view>
+        <text class="panel-title">下一步行动</text>
+        <text class="panel-subtitle">先补齐影响退休时间最大的几类数据。</text>
+      </view>
+    </view>
+    <view class="action-grid">
+      <button class="action-card asset-action" data-page="assets" bindtap="goTab">
+        <text class="action-title">补充资产</text>
+        <text class="action-value">{{overview.currentAssetsText}}</text>
+        <text class="action-note">{{overview.valuationStatusText}}</text>
+      </button>
+      <button class="action-card security-action" data-page="security" bindtap="goTab">
+        <text class="action-title">完善保障</text>
+        <text class="action-value">{{overview.securityTotalText}}</text>
+        <text class="action-note">{{overview.securitySupportText}}</text>
+      </button>
+      <button class="action-card route-action" data-page="route" bindtap="goTab">
+        <text class="action-title">查看路线</text>
+        <text class="action-value">{{overview.freedomDate}}</text>
+        <text class="action-note">看达成点和年度变化</text>
+      </button>
+      <button class="action-card drag-action" data-page="drags" bindtap="goTab">
+        <text class="action-title">检查拖累项</text>
+        <text class="action-value">{{overview.dragTotalText}}</text>
+        <text class="action-note">{{overview.dragCountText}}</text>
+      </button>
+    </view>
+  </view>
+
+  <view class="edit-panel">
+    <view class="edit-summary">
+      <view>
+        <text class="panel-title">基础数据</text>
+        <text class="panel-subtitle">年龄、目标和现金流会立即影响退休时间。</text>
+      </view>
+      <button class="edit-toggle" bindtap="toggleEditPanel">{{isEditingProfile ? "收起" : "编辑基础数据"}}</button>
+    </view>
+
+    <view wx:if="{{isEditingProfile}}" class="edit-body">
+      <view class="head-actions">
+        <button class="mini-button" bindtap="resetExample">恢复示例</button>
+        <button class="mini-button danger" bindtap="clearLocalData">清除本地数据</button>
+      </view>
+
+      <view class="form-grid">
+        <label class="form-label compact">
+          年龄
+          <input class="form-input" data-field="age" type="number" value="{{profile.age}}" bindinput="onProfileInput" />
+        </label>
+        <label class="form-label compact">
+          目标
+          <input class="form-input" data-field="target" type="number" value="{{profile.target}}" bindinput="onProfileInput" />
+        </label>
+        <label class="form-label compact">
+          月工资
+          <input class="form-input" data-field="salary" type="digit" value="{{profile.salary}}" bindinput="onProfileInput" />
+        </label>
+        <label class="form-label compact">
+          副业收入
+          <input class="form-input" data-field="sideIncome" type="digit" value="{{profile.sideIncome}}" bindinput="onProfileInput" />
+        </label>
+        <label class="form-label compact wide">
+          月生活支出
+          <input class="form-input" data-field="livingCost" type="digit" value="{{profile.livingCost}}" bindinput="onProfileInput" />
+        </label>
+        <label class="form-label compact wide">
+          目标退休月生活成本
+          <input class="form-input" data-field="targetMonthlyLivingCost" type="digit" value="{{profile.targetMonthlyLivingCost}}" bindinput="onProfileInput" />
+        </label>
+      </view>
+
+      <button class="advanced-toggle" bindtap="toggleAdvancedProfile">
+        {{showAdvancedProfile ? "收起工资回测" : "展开工资回测"}}
+      </button>
+
+      <view wx:if="{{showAdvancedProfile}}" class="salary-history">
+        <view class="section-head">
+          <text class="section-title">工资回测</text>
+          <text class="section-note">0 收入年份会保留，但不作为增长起点</text>
+        </view>
+        <view class="history-grid">
+          <label class="form-label compact history-field">
+            三年前
+            <input class="form-input" data-field="salaryYear3" type="digit" value="{{profile.salaryYear3}}" bindinput="onProfileInput" placeholder="0" />
+          </label>
+          <label class="form-label compact history-field">
+            两年前
+            <input class="form-input" data-field="salaryYear2" type="digit" value="{{profile.salaryYear2}}" bindinput="onProfileInput" placeholder="0" />
+          </label>
+          <label class="form-label compact history-field">
+            一年前
+            <input class="form-input" data-field="salaryYear1" type="digit" value="{{profile.salaryYear1}}" bindinput="onProfileInput" placeholder="0" />
+          </label>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

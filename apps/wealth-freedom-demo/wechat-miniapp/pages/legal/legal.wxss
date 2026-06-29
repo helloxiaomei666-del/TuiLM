@@ -1,0 +1,38 @@
+.legal-page {
+  padding-bottom: 72rpx;
+}
+
+.legal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  display: block;
+  color: #071916;
+  font-size: 32rpx;
+  font-weight: 950;
+}
+
+.legal-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+
+.legal-item text {
+  color: #4f5f59;
+  font-size: 27rpx;
+  font-weight: 700;
+  line-height: 1.58;
+}
+
+.legal-item .bullet {
+  flex: none;
+  color: #0f766e;
+  font-size: 30rpx;
+  line-height: 1.42;
+}
