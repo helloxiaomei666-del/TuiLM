@@ -7,6 +7,7 @@
 测试范围包括：
 
 - 创建工程内本地 venv：`.runtime/yinhe-smoke/.venv`
+- 可选从本地 wheelhouse 离线安装第三方依赖
 - 使用本地 wheel 安装 `tgw`
 - 使用本地 wheel 安装 `AmazingData`
 - 读取两个包的已安装元信息
@@ -39,11 +40,26 @@
 .\sdks\yinhe\scripts\run_import_smoke_test.ps1
 ```
 
-脚本会执行以下步骤：
+默认模式只安装两个 SDK wheel，不安装第三方依赖：
 
 ```powershell
 python -m venv .runtime/yinhe-smoke/.venv
 .runtime\yinhe-smoke\.venv\Scripts\Activate.ps1
+python -m pip install --no-index --no-deps sdks/yinhe/vendor/wheels/tgw-1.0.8.7-py3-none-any.whl
+python -m pip install --no-index --no-deps sdks/yinhe/vendor/wheels/AmazingData-1.1.8-cp312-none-any.whl
+python sdks/yinhe/scripts/import_smoke_test.py
+```
+
+如果已准备本地依赖 wheelhouse，可以从 TuiLM 根目录执行：
+
+```powershell
+.\sdks\yinhe\scripts\run_import_smoke_test.ps1 -WithDependencies
+```
+
+该模式会先从本地 wheelhouse 离线安装依赖，再安装两个 SDK wheel：
+
+```powershell
+python -m pip install --no-index --find-links sdks/yinhe/vendor/wheelhouse pandas "pydantic>=2.6.4" "numba>=0.65.0" "scipy>=1.15.1" "statsmodels>=0.11.0"
 python -m pip install --no-index --no-deps sdks/yinhe/vendor/wheels/tgw-1.0.8.7-py3-none-any.whl
 python -m pip install --no-index --no-deps sdks/yinhe/vendor/wheels/AmazingData-1.1.8-cp312-none-any.whl
 python sdks/yinhe/scripts/import_smoke_test.py
@@ -66,6 +82,7 @@ python sdks/yinhe/scripts/import_smoke_test.py
 - Current working directory
 - `tgw` distribution metadata
 - `AmazingData` distribution metadata
+- 是否启用 `-WithDependencies`
 - `import tgw` 的 PASS / FAIL
 - `import AmazingData` 的 PASS / WARN
 - `tgw` 关键符号存在性：
@@ -92,12 +109,14 @@ python sdks/yinhe/scripts/import_smoke_test.py
 - `AmazingData` import 失败不直接视为致命失败，只要 `tgw` 能 import，脚本退出码仍为 `0`。
 - 某些 `tgw` 符号缺失时标记 WARN，需要进入接口符号审计阶段确认。
 - 在 `--no-deps` 环境中，如果未预置 `pandas`，`tgw` 也可能因缺少 `pandas` 而 import 失败；此时应补充本地 wheelhouse 后重跑。
+- 如果本地 wheelhouse 不完整，`-WithDependencies` 模式会在离线安装依赖阶段失败。
 
 ### FAIL
 
 - `tgw` 和 `AmazingData` 都无法 import。
 - 脚本最终退出码为 `1`。
 - 本地 wheel 文件缺失。
+- 启用 `-WithDependencies` 时，本地 wheelhouse 目录缺失或依赖 wheel 不完整。
 - venv 创建、离线安装或脚本执行失败。
 
 ## 6. 注意事项
@@ -105,6 +124,7 @@ python sdks/yinhe/scripts/import_smoke_test.py
 - `tgw.__init__` 可能有证书复制副作用；本测试必须在 `.runtime/yinhe-smoke/.venv` 隔离环境中运行，并观察输出和 runtime 目录变化。
 - `tgw` 声明依赖 `pandas`；本阶段使用 `--no-deps`，如果本地 venv 中没有 `pandas`，`import tgw` 可能失败。
 - `AmazingData` 可能因为 `pydantic`、`numba`、`scipy`、`statsmodels` 未安装而 import 失败。本阶段使用 `--no-deps`，不会联网补依赖。
+- `-WithDependencies` 模式只从 `sdks/yinhe/vendor/wheelhouse/` 离线安装依赖，仍然使用 `--no-index`，不会访问公网索引。
 - 本阶段只验证 import 和符号存在，不验证行情权限、登录权限、订阅权限或交易权限。
 - 不要将 `.runtime/yinhe-smoke/`、`.venv`、pip 缓存、日志或 wheel 解压产物提交进 Git。
 - 不要在 `apps/wealth-freedom-demo` 中直接调用 SDK。
@@ -112,7 +132,7 @@ python sdks/yinhe/scripts/import_smoke_test.py
 ## 7. 下一步
 
 1. 如果 import 通过，再做接口符号审计，整理 `tgw.interface`、`tgw.base_struct` 和 `AmazingData.query_api` 的可用 API。
-2. 如果缺依赖，再单独建立本地 wheelhouse 方案，补齐 `pandas`、`pydantic`、`numba`、`scipy`、`statsmodels` 等依赖 wheel。
+2. 如果缺依赖，补齐 `sdks/yinhe/vendor/wheelhouse/` 后使用 `-WithDependencies` 重跑。
 3. 不要直接进入真实行情对接。
 4. 在完成接口符号审计后，再设计独立 provider adapter。
 5. 通过 `quote-service` 或 adapter 层定义应用侧边界，避免 SDK 代码混入 `apps/wealth-freedom-demo`。

@@ -1,3 +1,7 @@
+param(
+    [switch]$WithDependencies
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -10,7 +14,15 @@ $VenvDir = Join-Path $RuntimeDir ".venv"
 $OutputFile = Join-Path $RuntimeDir "import-smoke-output.txt"
 $TgwWheel = Join-Path $RepoRoot "sdks\yinhe\vendor\wheels\tgw-1.0.8.7-py3-none-any.whl"
 $AmazingDataWheel = Join-Path $RepoRoot "sdks\yinhe\vendor\wheels\AmazingData-1.1.8-cp312-none-any.whl"
+$WheelhouseDir = Join-Path $RepoRoot "sdks\yinhe\vendor\wheelhouse"
 $SmokeScript = Join-Path $RepoRoot "sdks\yinhe\scripts\import_smoke_test.py"
+$Dependencies = @(
+    "pandas",
+    "pydantic>=2.6.4",
+    "numba>=0.65.0",
+    "scipy>=1.15.1",
+    "statsmodels>=0.11.0"
+)
 
 New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
 Set-Content -LiteralPath $OutputFile -Value "Yinhe SDK import smoke test run" -Encoding UTF8
@@ -44,6 +56,7 @@ Write-Logged "Repository root: $RepoRoot"
 Write-Logged "Runtime directory: $RuntimeDir"
 Write-Logged "Boundary: no network, no real login, no real market-data query, no real subscription, no real trading request."
 Write-Logged "Pip upgrade is intentionally skipped to avoid network access."
+Write-Logged "WithDependencies: $WithDependencies"
 
 if (-not (Test-Path -LiteralPath $TgwWheel)) {
     throw "Missing wheel: $TgwWheel"
@@ -53,6 +66,9 @@ if (-not (Test-Path -LiteralPath $AmazingDataWheel)) {
 }
 if (-not (Test-Path -LiteralPath $SmokeScript)) {
     throw "Missing smoke test script: $SmokeScript"
+}
+if ($WithDependencies -and -not (Test-Path -LiteralPath $WheelhouseDir)) {
+    throw "Missing local wheelhouse directory: $WheelhouseDir"
 }
 
 if (-not (Test-Path -LiteralPath $VenvDir)) {
@@ -74,6 +90,14 @@ Write-Logged "Activated venv: $VenvDir"
 $VenvPython = Join-Path $VenvDir "Scripts\python.exe"
 if (-not (Test-Path -LiteralPath $VenvPython)) {
     throw "Missing venv Python: $VenvPython"
+}
+
+if ($WithDependencies) {
+    Write-Logged "Installing dependencies from local wheelhouse: $WheelhouseDir"
+    Invoke-LoggedNative $VenvPython "-m" "pip" "install" "--no-index" "--find-links" $WheelhouseDir @Dependencies
+}
+else {
+    Write-Logged "Dependency installation skipped. Re-run with -WithDependencies to install from local wheelhouse."
 }
 
 Invoke-LoggedNative $VenvPython "-m" "pip" "install" "--no-index" "--no-deps" $TgwWheel
