@@ -6,6 +6,7 @@ TuiLM 是《退了吗》统一工程，用于集中管理当前已迁入的产�
 
 ```text
 apps/wealth-freedom-demo
+apps/retire-quiz
 sdks/yinhe
 docs/migration
 ```
@@ -17,6 +18,8 @@ docs/migration
 - TuiLM Git 仓库已初始化。
 - `apps/wealth-freedom-demo` 已迁入。
 - wealth demo 迁移后测试为 80/80 pass。
+- `apps/retire-quiz` 已迁入。
+- retire-quiz / 《测一测》已迁入 apps/retire-quiz，并通过 71/71 测试。
 - `sdks/yinhe` 已建立。
 - yinhe SDK wheel 已本地纳入，但 `.whl` 不进入 Git。
 - wheelhouse 本地依赖准备完成。
@@ -29,14 +32,14 @@ docs/migration
 当前最新基线：
 
 ```text
-baseline-tuilm-merge-bridge-20260630
+baseline-retire-quiz-h5-mvp-20260630
 ```
 
 ## 模块说明
 
 ### `apps/wealth-freedom-demo`
 
-`apps/wealth-freedom-demo` 是已迁入的《退了吗》财富自由 / 退休测算演示应用模块。
+`apps/wealth-freedom-demo` 是已迁入的《退了吗》主产品 / 财富自由演示项目快照，迁移后测试 80/80 pass。
 
 当前包含：
 
@@ -52,9 +55,25 @@ baseline-tuilm-merge-bridge-20260630
 - 迁移后测试 80/80 pass。
 - 当前阶段不在 SDK 审计或 adapter 边界设计任务中修改该目录。
 
+### `apps/retire-quiz`
+
+`apps/retire-quiz` 是已迁入的《测一测》H5 MVP，静态 H5，零依赖，迁移后测试 71/71 pass。
+
+当前包含：
+
+- 静态 H5 MVP。
+- 零依赖前端实现。
+- 迁移后测试集。
+
+当前状态：
+
+- 已迁入 TuiLM。
+- 迁移后测试 71/71 pass。
+- 当前阶段不在 SDK 审计或 adapter 边界设计任务中修改该目录。
+
 ### `sdks/yinhe`
 
-`sdks/yinhe` 用于存放银河证券 / Galaxy / yinhe SDK 相关研究、依赖准备、接口审计和后续 adapter 设计文档。
+`sdks/yinhe` 是银河证券 / AmazingData / tgw SDK 研究、审计、smoke test 与未来 adapter 设计目录。
 
 当前包含：
 
@@ -73,7 +92,7 @@ baseline-tuilm-merge-bridge-20260630
 
 ### `docs/migration`
 
-`docs/migration` 用于保存 TuiLM 迁移和合并状态相关文档。
+`docs/migration` 用于保存迁移状态、桥接记录、阶段性合并说明。
 
 当前包含：
 
