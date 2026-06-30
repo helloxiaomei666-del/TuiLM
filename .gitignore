@@ -34,3 +34,6 @@ Thumbs.db
 .env.*
 # local vendor SDK wheels
 sdks/yinhe/vendor/wheels/*.whl
+
+# local dependency wheelhouse
+sdks/yinhe/vendor/wheelhouse/*.whl
