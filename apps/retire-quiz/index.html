@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="测一测你的自由进度：看看你现在有多少生活成本，已经不用完全靠工资来扛。">
+  <meta name="theme-color" content="#F8F3EA">
+  <title>测一测你的自由进度</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section id="landing-view" class="landing" data-app-view="landing" aria-labelledby="landing-title">
+      <p class="eyebrow">微信 H5 测一测</p>
+      <h1 id="landing-title">测一测你的自由进度</h1>
+      <p class="landing__subtitle">看看你现在有多少生活成本，<br>已经不用完全靠工资来扛。</p>
+      <ul class="landing-proof" aria-label="测算特点">
+        <li>30 秒开始</li>
+        <li>不登录</li>
+        <li>不上传</li>
+        <li>本地生成结果</li>
+      </ul>
+      <div class="landing-actions">
+        <button id="start-test" class="button button--primary" type="button">开始测一测</button>
+        <button id="continue-test" class="button button--secondary" type="button" hidden>继续上次测算</button>
+      </div>
+      <p class="privacy-note">数据仅保存在当前浏览器，不会上传。</p>
+      <p class="compliance-note">本测算仅用于个人财务观察，不构成投资、理财、保险或退休决策建议。</p>
+    </section>
+
+    <section id="form-view" data-app-view="form" aria-labelledby="form-title" hidden>
+      <header class="form-header">
+        <div>
+          <p id="step-label" class="eyebrow" aria-live="polite">第 1 / 5 步：生活目标</p>
+          <h2 id="form-title">生成你的自由进度报告</h2>
+          <p class="form-subtitle">一步步填完后，系统会生成一份仅供自我观察的自由进度报告。</p>
+        </div>
+      </header>
+      <div class="progress" role="progressbar" aria-label="填写进度" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1">
+        <span id="progress-bar" class="progress__bar"></span>
+      </div>
+      <ol id="stepper" class="stepper" aria-label="五步测算流程">
+        <li class="stepper__item is-current" data-step="1"><span>1</span>生活目标</li>
+        <li class="stepper__item" data-step="2"><span>2</span>资产</li>
+        <li class="stepper__item" data-step="3"><span>3</span>负债</li>
+        <li class="stepper__item" data-step="4"><span>4</span>收支</li>
+        <li class="stepper__item" data-step="5"><span>5</span>被动收入</li>
+      </ol>
+      <p id="next-step-label" class="step-next" aria-live="polite">下一步：资产</p>
+
+      <form id="retirement-form" novalidate>
+        <fieldset data-step="1">
+          <legend>设定你的生活目标</legend>
+          <p class="step-intro">先填写你的年龄和生活成本。这些信息会用来估算目标资产，以及你的自由进度。</p>
+          <aside class="step-tip">不用填得特别精确。先按你现在真实生活的感觉填写，之后可以随时修改。</aside>
+          <aside class="impact-card" aria-label="这一页会影响什么">
+            <h3>这一页会影响什么</h3>
+            <ul><li>目标退休资产</li><li>自由进度解释</li><li>保守模型下的目标达成时间</li></ul>
+          </aside>
+
+          <div class="field">
+            <label for="age">当前年龄</label>
+            <input id="age" name="age" type="number" min="18" max="100" step="1" inputmode="numeric" autocomplete="off" required aria-describedby="age-hint age-error">
+            <p id="age-hint" class="field-hint">用于估算目标达成时间。</p>
+            <span id="age-error" class="field-error" aria-live="polite"></span>
+          </div>
+          <div class="field">
+            <label for="city">所在城市</label>
+            <input id="city" name="city" type="text" maxlength="40" autocomplete="address-level2" aria-describedby="city-hint city-error">
+            <p id="city-hint" class="field-hint">仅用于记录测算背景，当前不会联网获取城市数据。</p>
+            <span id="city-error" class="field-error" aria-live="polite"></span>
+          </div>
+          <div class="field">
+            <label for="desired-retirement-age">希望达成自由状态的年龄</label>
+            <input id="desired-retirement-age" name="desiredRetirementAge" type="number" min="18" max="100" step="1" inputmode="numeric" autocomplete="off" aria-describedby="desired-retirement-age-hint desired-retirement-age-error">
+            <p id="desired-retirement-age-hint" class="field-hint">可选。如果不确定，可以先留空。</p>
+            <span id="desired-retirement-age-error" class="field-error" aria-live="polite"></span>
+          </div>
+          <div class="field">
+            <label for="current-monthly-cost">当前月生活成本（元）</label>
+            <input id="current-monthly-cost" name="currentMonthlyCost" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" required aria-describedby="current-monthly-cost-hint current-monthly-cost-error">
+            <p id="current-monthly-cost-hint" class="field-hint">包括房租、吃饭、交通、购物、娱乐等日常支出。</p>
+            <span id="current-monthly-cost-error" class="field-error" aria-live="polite"></span>
+          </div>
+          <div class="field">
+            <label for="target-monthly-cost">理想状态下每月生活成本（元）</label>
+            <input id="target-monthly-cost" name="targetMonthlyCost" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="target-monthly-cost-hint target-monthly-cost-error">
+            <p id="target-monthly-cost-hint" class="field-hint">如果你希望未来生活水平和现在差不多，可以留空。</p>
+            <span id="target-monthly-cost-error" class="field-error" aria-live="polite"></span>
+          </div>
+
+          <div class="form-actions">
+            <button class="button button--secondary" type="button" data-action="previous" disabled>上一步</button>
+            <button class="button button--primary" type="button" data-action="next">继续填写资产</button>
+          </div>
+        </fieldset>
+
+        <fieldset data-step="2" hidden>
+          <legend>盘点你已经拥有的资产</legend>
+          <p class="step-intro">这里填写你当前大致拥有的资产价值。这些金额会加总为“总资产”。</p>
+          <aside class="step-tip">房产请填写当前估值，不要提前扣除房贷。剩余房贷会在下一步“负债”中单独填写。</aside>
+          <aside class="impact-card" aria-label="这一页会影响什么">
+            <h3>这一页会影响什么</h3>
+            <ul><li>当前总资产</li><li>当前净资产</li><li>目标资产进度</li></ul>
+          </aside>
+
+          <div class="field-grid">
+            <div class="field"><label for="cash">现金（元）</label><input id="cash" name="cash" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="cash-hint"><p id="cash-hint" class="field-hint">银行卡、货币基金、可随时使用的钱。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="funds">基金（元）</label><input id="funds" name="funds" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="funds-hint"><p id="funds-hint" class="field-hint">按当前大致市值填写。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="stocks">股票（元）</label><input id="stocks" name="stocks" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="stocks-hint"><p id="stocks-hint" class="field-hint">按当前大致市值填写。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="gold">黄金（元）</label><input id="gold" name="gold" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="gold-hint"><p id="gold-hint" class="field-hint">按当前大致市值填写。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field">
+              <label for="property-value">房产估值（元）</label>
+              <input id="property-value" name="propertyValue" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="property-value-hint">
+              <small id="property-value-hint" class="field-hint">填写房产当前大致市场价值，不要在这里扣除房贷。</small>
+              <span class="field-error" aria-live="polite"></span>
+            </div>
+            <div class="field"><label for="other-assets">其他资产（元）</label><input id="other-assets" name="otherAssets" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="other-assets-hint"><p id="other-assets-hint" class="field-hint">例如车、可变现收藏品、其他可确认资产。</p><span class="field-error" aria-live="polite"></span></div>
+          </div>
+          <output id="assets-summary" class="live-summary live-summary--card" aria-live="polite">资产小结
+当前总资产：¥0
+下一步会填写负债，系统会用“总资产 - 总负债”计算你的净资产。</output>
+
+          <div class="form-actions">
+            <button class="button button--secondary" type="button" data-action="previous">上一步</button>
+            <button class="button button--primary" type="button" data-action="next">继续填写负债</button>
+          </div>
+        </fieldset>
+
+        <fieldset data-step="3" hidden>
+          <legend>扣除你仍要偿还的负债</legend>
+          <p class="step-intro">这里只填写尚未偿还的本金或当前确认的负债余额。这些金额会从总资产中扣除，用来计算净资产。</p>
+          <aside class="impact-card" aria-label="这一页会影响什么">
+            <h3>这一页会影响什么</h3>
+            <ul><li>当前净资产</li><li>目标资产进度</li><li>资产状态判断</li></ul>
+          </aside>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="mortgage-balance">剩余房贷（元）</label>
+              <input id="mortgage-balance" name="mortgageBalance" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="mortgage-balance-hint">
+              <small id="mortgage-balance-hint" class="field-hint">填写当前仍未偿还的房贷本金余额。</small>
+              <span class="field-error" aria-live="polite"></span>
+            </div>
+            <div class="field"><label for="car-loan">车贷（元）</label><input id="car-loan" name="carLoan" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="car-loan-hint"><p id="car-loan-hint" class="field-hint">填写当前仍未偿还的车贷余额。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="consumer-loan">消费贷（元）</label><input id="consumer-loan" name="consumerLoan" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="consumer-loan-hint"><p id="consumer-loan-hint" class="field-hint">包括信用贷、分期、信用卡欠款等。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="other-debt">其他负债（元）</label><input id="other-debt" name="otherDebt" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="other-debt-hint"><p id="other-debt-hint" class="field-hint">其他需要偿还的债务。</p><span class="field-error" aria-live="polite"></span></div>
+          </div>
+          <div class="live-summary live-summary--card" aria-live="polite">
+            <span id="debts-summary">净资产小结
+总资产：¥0
+总负债：¥0
+当前净资产：¥0
+净资产 = 总资产 - 总负债。它会用于计算你的目标资产进度。</span>
+            <span id="net-assets-summary" class="sr-only">净资产 = 总资产 - 总负债</span>
+          </div>
+
+          <div class="form-actions">
+            <button class="button button--secondary" type="button" data-action="previous">上一步</button>
+            <button class="button button--primary" type="button" data-action="next">继续填写收支</button>
+          </div>
+        </fieldset>
+
+        <fieldset data-step="4" hidden>
+          <legend>看看你每月能留下多少钱</legend>
+          <p class="step-intro">这里会估算你每月可投入金额。它会影响保守模型下的目标达成时间。</p>
+          <aside class="impact-card" aria-label="这一页会影响什么">
+            <h3>这一页会影响什么</h3>
+            <ul><li>月可投入金额</li><li>保守模型下的目标达成时间</li><li>目标资产缺口说明</li></ul>
+          </aside>
+
+          <div class="field-grid">
+            <div class="field"><label for="monthly-salary">每月工资收入（元）</label><input id="monthly-salary" name="monthlySalary" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="monthly-salary-hint"><p id="monthly-salary-hint" class="field-hint">税后到手收入。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="monthly-side-income">每月副业收入（元）</label><input id="monthly-side-income" name="monthlySideIncome" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="monthly-side-income-hint"><p id="monthly-side-income-hint" class="field-hint">需要你持续投入时间或精力的收入。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="monthly-living-expense">每月生活支出（元）</label><input id="monthly-living-expense" name="monthlyLivingExpense" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="monthly-living-expense-hint"><p id="monthly-living-expense-hint" class="field-hint">日常生活支出。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="monthly-fixed-expense">每月固定支出（元）</label><input id="monthly-fixed-expense" name="monthlyFixedExpense" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="monthly-fixed-expense-hint"><p id="monthly-fixed-expense-hint" class="field-hint">房租、保险、家庭支出等固定项目。</p><span class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="monthly-debt-payment">每月债务还款（元）</label><input id="monthly-debt-payment" name="monthlyDebtPayment" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-describedby="monthly-debt-payment-hint"><p id="monthly-debt-payment-hint" class="field-hint">每月还房贷、车贷、消费贷等金额。</p><span class="field-error" aria-live="polite"></span></div>
+          </div>
+          <output id="investable-summary" class="live-summary live-summary--card" aria-live="polite">每月现金流小结
+月收入：¥0
+月支出：¥0
+月可投入金额：¥0
+月可投入金额越高，保守模型下的目标达成时间通常越短。</output>
+
+          <div class="form-actions">
+            <button class="button button--secondary" type="button" data-action="previous">上一步</button>
+            <button class="button button--primary" type="button" data-action="next">继续填写资产收入</button>
+          </div>
+        </fieldset>
+
+        <fieldset data-step="5" hidden>
+          <legend>计算资产每月替你赚多少钱</legend>
+          <p class="step-intro">这里填写不完全依赖工资的收入。稳定被动收入会用于计算你的自由进度。</p>
+          <aside class="impact-card" aria-label="这一页会影响什么">
+            <h3>这一页会影响什么</h3>
+            <ul><li>自由进度</li><li>资产月收入</li><li>工资依赖</li><li>阶段小结</li></ul>
+          </aside>
+
+          <h3 class="field-group-title">稳定被动收入</h3>
+          <p class="field-hint">稳定被动收入会计入“自由进度”。</p>
+          <div class="passive-list">
+            <div class="passive-row"><label for="rent">租金</label><input id="rent" name="rent" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-label="租金金额" aria-describedby="rent-error"><select name="rentFrequency" aria-label="租金周期"><option value="month">每月</option><option value="quarter">每季</option><option value="year">每年</option><option value="irregular">不固定</option></select><span id="rent-error" class="field-error" aria-live="polite"></span></div>
+            <div class="passive-row"><label for="dividends">股息分红</label><input id="dividends" name="dividends" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-label="股息分红金额" aria-describedby="dividends-error"><select name="dividendsFrequency" aria-label="股息分红周期"><option value="month">每月</option><option value="quarter">每季</option><option value="year">每年</option><option value="irregular">不固定</option></select><span id="dividends-error" class="field-error" aria-live="polite"></span></div>
+            <div class="passive-row"><label for="interest">利息</label><input id="interest" name="interest" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-label="利息金额" aria-describedby="interest-error"><select name="interestFrequency" aria-label="利息周期"><option value="month">每月</option><option value="quarter">每季</option><option value="year">每年</option><option value="irregular">不固定</option></select><span id="interest-error" class="field-error" aria-live="polite"></span></div>
+            <div class="passive-row"><label for="reits">REITs 收入</label><input id="reits" name="reits" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-label="REITs 收入金额" aria-describedby="reits-error"><select name="reitsFrequency" aria-label="REITs 收入周期"><option value="month">每月</option><option value="quarter">每季</option><option value="year">每年</option><option value="irregular">不固定</option></select><span id="reits-error" class="field-error" aria-live="polite"></span></div>
+            <div class="passive-row"><label for="pension">养老金</label><input id="pension" name="pension" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-label="养老金金额" aria-describedby="pension-error"><select name="pensionFrequency" aria-label="养老金周期"><option value="month">每月</option><option value="quarter">每季</option><option value="year">每年</option><option value="irregular">不固定</option></select><span id="pension-error" class="field-error" aria-live="polite"></span></div>
+            <div class="passive-row"><label for="annuity">年金</label><input id="annuity" name="annuity" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-label="年金金额" aria-describedby="annuity-error"><select name="annuityFrequency" aria-label="年金周期"><option value="month">每月</option><option value="quarter">每季</option><option value="year">每年</option><option value="irregular">不固定</option></select><span id="annuity-error" class="field-error" aria-live="polite"></span></div>
+            <div class="passive-row"><label for="royalties">版权收入</label><input id="royalties" name="royalties" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-label="版权收入金额" aria-describedby="royalties-error"><select name="royaltiesFrequency" aria-label="版权收入周期"><option value="month">每月</option><option value="quarter">每季</option><option value="year">每年</option><option value="irregular">不固定</option></select><span id="royalties-error" class="field-error" aria-live="polite"></span></div>
+            <div class="passive-row"><label for="other-passive">其他稳定被动收入</label><input id="other-passive" name="otherPassive" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-label="其他稳定被动收入金额" aria-describedby="other-passive-error"><select name="otherPassiveFrequency" aria-label="其他稳定被动收入周期"><option value="month">每月</option><option value="quarter">每季</option><option value="year">每年</option><option value="irregular">不固定</option></select><span id="other-passive-error" class="field-error" aria-live="polite"></span></div>
+          </div>
+
+          <h3 class="field-group-title">半被动收入</h3>
+          <p class="field-hint">半被动收入会计入“资产月收入”，但不计入核心自由进度。</p>
+          <div class="passive-list">
+            <div class="passive-row passive-row--semi"><label for="semi-passive">需要少量维护的副业收入</label><input id="semi-passive" name="semiPassive" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" aria-label="半被动收入金额" aria-describedby="semi-passive-error"><select name="semiPassiveFrequency" aria-label="半被动收入周期"><option value="month">每月</option><option value="quarter">每季</option><option value="year">每年</option><option value="irregular">不固定</option></select><span id="semi-passive-error" class="field-error" aria-live="polite"></span><p>例如长期项目收入、其他半被动收入。这类收入仍需维护，只计入资产月收入。</p></div>
+          </div>
+          <output id="passive-summary" class="live-summary live-summary--card" aria-live="polite">资产收入小结
+稳定被动收入：¥0 / 月
+半被动收入：¥0 / 月
+资产月收入：¥0 / 月
+自由进度主要看稳定被动收入能覆盖多少生活成本。</output>
+
+          <div class="form-actions">
+            <button class="button button--secondary" type="button" data-action="previous">上一步</button>
+            <button id="generate-report" class="button button--primary" type="submit">生成我的自由进度报告</button>
+          </div>
+        </fieldset>
+      </form>
+      <aside class="form-secondary-actions" aria-label="数据管理">
+        <p class="privacy-note">数据仅保存在当前浏览器，不会上传。如果你正在使用公共设备，建议测算后清空本地数据。</p>
+        <button id="clear-data" class="button button--quiet form-clear" type="button">清空本地数据</button>
+      </aside>
+    </section>
+
+    <section id="report-view" class="report" data-app-view="result" aria-labelledby="report-title" hidden>
+      <header class="report__header">
+        <p class="eyebrow">测算完成</p>
+        <h2 id="report-title">我的自由进度</h2>
+      </header>
+
+      <section class="result-summary-card report-section" aria-labelledby="result-summary-title">
+        <p class="eyebrow">测算完成</p>
+        <h3 id="result-summary-title">我的自由进度</h3>
+        <p id="cashflow-rate" class="result-summary-percent">—</p>
+        <p id="retirement-stage" class="metric-status result-summary-stage">等待生成结果</p>
+        <p id="result-summary-main" class="result-summary-detail">现在有 <span id="result-summary-rate-inline">—</span> 的生活成本，不用完全靠工资来扛。</p>
+        <button id="open-poster-view" class="button button--primary result-summary-action" type="button">保存自由进度卡</button>
+      </section>
+
+      <div class="report-grid result-metrics-grid">
+        <section class="metric-card metric-card--featured report-section"><h3>目标资产进度</h3><p class="metric-copy">净资产占目标资产</p><p id="asset-rate" class="metric-value">—</p><p id="asset-badge" class="metric-badge">净资产占目标资产</p><p id="asset-retirement-copy" class="metric-copy">目标资产进度高，不代表现金流已经覆盖生活。</p></section>
+        <section class="metric-card metric-card--featured report-section"><h3>资产月收入</h3><p class="metric-copy">每月被动 / 半被动收入</p><p id="asset-work-power" class="metric-value">—</p><dl><div><dt>稳定被动收入</dt><dd id="stable-passive-income">—</dd></div><div><dt>半被动收入</dt><dd id="semi-passive-income">—</dd></div></dl></section>
+        <section class="metric-card metric-card--featured report-section"><h3>工资依赖</h3><p class="metric-copy">仍需工资覆盖生活成本</p><p id="labor-rate" class="metric-value">—</p><p id="cashflow-badge" class="metric-badge">等待测算</p><p id="cashflow-explanation" class="metric-copy">目标生活成本中仍需工资或主动收入覆盖的比例。</p></section>
+      </div>
+
+      <div class="report-grid report-grid--secondary">
+        <section class="metric-card report-section"><h3>安全垫月数</h3><p id="safety-months" class="metric-value">—</p><p class="metric-copy">仅按现金和当前月生活成本估算。</p></section>
+        <section class="metric-card report-section"><h3>保守模型时间</h3><p id="estimated-age" class="metric-value">—</p><p id="retirement-age-comparison" class="metric-copy">该结果只是测算，不代表承诺，也不构成投资建议。</p></section>
+        <section class="metric-card report-section"><h3>目标资产缺口时间</h3><p id="countdown-days" class="metric-value">—</p><p class="metric-copy">这是测算状态，不是退休承诺。</p></section>
+      </div>
+
+      <details class="formula-explainer report-section">
+        <summary>这些指标怎么算？</summary>
+        <p>现金流退休率 = 稳定月被动收入 / 目标月生活成本。它回答的是：我的生活有多少已经不靠工资？</p>
+        <p>目标资产进度 = 当前净资产 / 目标退休资产。它回答的是：扣除负债后的资产，距离目标资产还有多远？</p>
+        <p>当前净资产 = 总资产 - 总负债。</p>
+        <p>总资产包括现金、基金、股票、黄金、房产估值和其他资产；总负债包括剩余房贷、车贷、消费贷和其他负债。</p>
+        <p>目标退休资产采用目标月生活成本 × 12 × 25，也就是年生活成本约 25 倍的简化估算，不代表收益承诺或安全提款保证。</p>
+        <p>资产月收入 = 稳定被动收入 + 半被动收入。工资依赖 = 目标生活成本中仍需工资或主动收入覆盖的比例。</p>
+      </details>
+
+      <section class="accelerator report-section" aria-labelledby="accelerator-title">
+        <h3 id="accelerator-title">退休推进器</h3>
+        <p>查看每月稳定被动收入增加 100、500 或 1000 元的数学模拟。场景模拟，不是投资建议。</p>
+        <ul id="accelerator-list" class="accelerator__results" aria-live="polite"></ul>
+      </section>
+
+      <aside class="disclaimer" aria-labelledby="disclaimer-title">
+        <h3 id="disclaimer-title">重要说明</h3>
+        <p id="result-summary-caution">本结果仅用于个人财务观察，不构成投资、理财、保险或退休决策建议。</p>
+        <p>本工具仅用于个人财务状态测算和自我观察。结果基于用户输入和简化假设生成。不构成投资建议、理财建议、保险建议或退休决策建议。不推荐任何金融产品，不承诺任何收益，不预测市场走势，不建议用户买入、卖出或持有任何资产。</p>
+        <p>4% 仅为简化估算假设，不代表确定收益率或未来可实现收益。被动收入真实性和持续性不由系统验证；半被动收入仍需维护；养老金、公积金、企业年金和职业年金仅按用户输入展示，不代表官方待遇测算，未开始领取的保障账户不计入当前被动收入。</p>
+        <p>数据仅保存在当前浏览器，不会上传。如果你正在使用公共设备，建议测算后点击“清空本地数据”。</p>
+      </aside>
+
+      <div class="report-actions">
+        <button id="restart-test" class="button button--secondary" type="button">重新测算</button>
+        <button id="back-home" class="button button--secondary" type="button">返回首页</button>
+        <button id="clear-result-data" class="button button--quiet" type="button">清空本次数据</button>
+      </div>
+      <section class="cta-card" aria-labelledby="cta-title">
+        <div><p class="eyebrow">后续入口占位</p><h3 id="cta-title">想持续追踪退休率变化？进入《退了吗》</h3><p>《退了吗》长期追踪入口正在准备中，本按钮暂不跳转。<span class="cta-status">MVP 暂未接入真实地址</span></p></div>
+        <button id="product-cta" class="button button--secondary" type="button" aria-disabled="true">进入《退了吗》</button>
+      </section>
+    </section>
+
+    <section id="poster-view" class="poster-view" data-app-view="poster" aria-labelledby="share-title" hidden>
+      <header class="poster-header">
+        <p class="eyebrow">自由进度卡预览</p>
+        <h2 id="share-title">保存自由进度卡</h2>
+        <p>这张卡片可以保存到相册，也可以发给朋友一起测。</p>
+      </header>
+      <div class="poster-canvas-wrap">
+        <canvas id="share-canvas" width="1080" height="1600" aria-label="自由进度卡预览" aria-describedby="share-summary">自由进度卡的文字摘要见下方。</canvas>
+      </div>
+      <p id="share-summary" class="sr-only" aria-live="polite">海报摘要将在生成后显示自由进度、目标资产进度、资产月收入和动态小结。</p>
+      <p id="poster-save-hint" class="field-hint poster-hint">长按图片保存到相册。如果无法自动保存，请长按图片保存。</p>
+      <p class="field-hint poster-hint">图片仅在当前设备生成，不会上传。</p>
+      <p id="share-copy-feedback" class="toast" role="status" aria-live="polite" hidden></p>
+      <section id="manual-share-copy" class="share-copy-fallback" hidden>
+        <h3>手动复制分享文案</h3>
+        <textarea id="share-copy-text" readonly rows="6" aria-label="分享文案"></textarea>
+      </section>
+      <div class="poster-actions">
+        <button id="save-share-card" class="button button--primary" type="button">保存图片</button>
+        <button id="copy-share-copy" class="button button--secondary" type="button">复制分享文案</button>
+        <button id="back-to-result" class="button button--secondary" type="button">返回结果页</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/calculator.js" defer></script>
+  <script src="js/share-card.js" defer></script>
+  <script src="js/app.js" defer></script>
+</body>
+</html>
