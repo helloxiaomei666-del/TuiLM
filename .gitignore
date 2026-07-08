@@ -37,3 +37,9 @@ sdks/yinhe/vendor/wheels/*.whl
 
 # local dependency wheelhouse
 sdks/yinhe/vendor/wheelhouse/*.whl
+
+# Local Codex / agent tool state
+.codex/
+
+# Root-level WeChat DevTools config generated outside the miniapp directory
+/project.config.json
