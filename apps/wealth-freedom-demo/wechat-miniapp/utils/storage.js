@@ -1,6 +1,19 @@
-const { getDefaultState } = require("./demo-data");
+const { getDefaultState, getEmptyState } = require("./demo-data");
 
 const storageKey = "wealth-miniapp-state-v1";
+const inputCompletionKeys = [
+  "profile",
+  "assets",
+  "incomeSources",
+  "protectionAccounts",
+  "dragItems",
+];
+const canonicalDerivedFields = [
+  "monthlyEssentialExpense",
+  "liquidCash",
+  "investableAssets",
+  "targetRetirementAssets",
+];
 let memoryState = null;
 
 function hasWxStorage() {
@@ -12,8 +25,12 @@ function clone(value) {
 }
 
 function mergeSecurityAccounts(defaults, saved) {
-  const savedAccounts = saved || {};
-  return Object.keys(defaults).reduce((next, key) => {
+  const savedAccounts = saved && typeof saved === "object" ? saved : {};
+  const keys = new Set([
+    ...Object.keys(defaults || {}),
+    ...Object.keys(savedAccounts),
+  ]);
+  return Array.from(keys).reduce((next, key) => {
     const savedGroup = (savedAccounts && savedAccounts[key]) || {};
     const migratedGroup = { ...savedGroup };
     if (
@@ -32,34 +49,67 @@ function mergeSecurityAccounts(defaults, saved) {
   }, {});
 }
 
+function normalizeInputCompletion(inputCompletion, mode) {
+  const source = inputCompletion && typeof inputCompletion === "object"
+    ? inputCompletion
+    : {};
+  return inputCompletionKeys.reduce((next, key) => {
+    next[key] = mode === "user" && source[key] === true;
+    return next;
+  }, {});
+}
+
+function stripCanonicalDerivedFields(state) {
+  const next = { ...state };
+  canonicalDerivedFields.forEach((key) => {
+    delete next[key];
+  });
+  return next;
+}
+
 function migrateState(state) {
-  const defaults = getDefaultState();
+  const source = stripCanonicalDerivedFields(
+    state && typeof state === "object" ? state : {},
+  );
+  const mode = source.mode === "demo" ? "demo" : "user";
+  const defaults = mode === "demo" ? getDefaultState() : getEmptyState();
   return {
     ...defaults,
-    ...(state || {}),
+    ...source,
+    schemaVersion: 2,
+    mode,
+    inputCompletion: normalizeInputCompletion(source.inputCompletion, mode),
     userProfile: {
       ...defaults.userProfile,
-      ...((state && state.userProfile) || {}),
+      ...((source && source.userProfile) || {}),
     },
-    holdings: Array.isArray(state && state.holdings) ? state.holdings : defaults.holdings,
-    incomeStreams: Array.isArray(state && state.incomeStreams) ? state.incomeStreams : defaults.incomeStreams,
-    manualDrags: Array.isArray(state && state.manualDrags) ? state.manualDrags : defaults.manualDrags,
-    securityAccounts: mergeSecurityAccounts(defaults.securityAccounts, state && state.securityAccounts),
-    calculationSnapshots: Array.isArray(state && state.calculationSnapshots) ? state.calculationSnapshots : [],
-    valuationSnapshots: Array.isArray(state && state.valuationSnapshots) ? state.valuationSnapshots : [],
+    holdings: Array.isArray(source.holdings) ? source.holdings : defaults.holdings,
+    incomeStreams: Array.isArray(source.incomeStreams) ? source.incomeStreams : defaults.incomeStreams,
+    manualDrags: Array.isArray(source.manualDrags) ? source.manualDrags : defaults.manualDrags,
+    securityAccounts: mergeSecurityAccounts(defaults.securityAccounts, source.securityAccounts),
+    calculationSnapshots: Array.isArray(source.calculationSnapshots) ? source.calculationSnapshots : [],
+    valuationSnapshots: Array.isArray(source.valuationSnapshots) ? source.valuationSnapshots : [],
   };
+}
+
+function hasStateChanged(saved, normalized) {
+  return JSON.stringify(saved) !== JSON.stringify(normalized);
 }
 
 function loadState() {
   if (hasWxStorage()) {
     const saved = wx.getStorageSync(storageKey);
-    if (saved && typeof saved === "object") return migrateState(saved);
-    const defaults = getDefaultState();
+    if (saved && typeof saved === "object") {
+      const normalized = migrateState(saved);
+      if (hasStateChanged(saved, normalized)) wx.setStorageSync(storageKey, normalized);
+      return normalized;
+    }
+    const defaults = migrateState(getDefaultState());
     wx.setStorageSync(storageKey, defaults);
-    return defaults;
+    return clone(defaults);
   }
 
-  if (!memoryState) memoryState = getDefaultState();
+  if (!memoryState) memoryState = migrateState(getDefaultState());
   return clone(migrateState(memoryState));
 }
 
@@ -80,10 +130,13 @@ function resetState() {
 }
 
 function clearState() {
+  const emptyState = getEmptyState();
   if (hasWxStorage()) {
     wx.removeStorageSync(storageKey);
+    wx.setStorageSync(storageKey, emptyState);
   }
-  memoryState = null;
+  memoryState = emptyState;
+  return clone(emptyState);
 }
 
 module.exports = {

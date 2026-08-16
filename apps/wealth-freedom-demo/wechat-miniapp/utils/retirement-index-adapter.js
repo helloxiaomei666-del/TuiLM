@@ -351,6 +351,10 @@ function normalizeCanonicalInput(platform, input = {}) {
         : [],
   };
 
+  if (source.inputCompletion && typeof source.inputCompletion === "object") {
+    normalized.inputCompletion = source.inputCompletion;
+  }
+
   // H5 stores cash and funds separately; normalizeAssetFacts handles those
   // aliases. Web/miniapp can provide an already canonical asset object.
   return normalized;
@@ -359,24 +363,40 @@ function normalizeCanonicalInput(platform, input = {}) {
 function getCompletenessStatus(input = {}) {
   const normalized = normalizeCanonicalInput("canonical", input);
   const missing = [];
+  const completion = normalized.inputCompletion || null;
+  const hasCompletion = completion !== null;
+  const sectionConfirmed = (key) => hasCompletion && completion[key] === true;
   if (!finiteNumber(normalized.monthlyEssentialExpense) || normalized.monthlyEssentialExpense <= 0) {
     missing.push("monthlyEssentialExpense");
+  } else if (hasCompletion && !sectionConfirmed("profile")) {
+    missing.push("profile");
   }
   if (!finiteNumber(normalized.liquidCash) || normalized.liquidCash < 0) {
     missing.push("cashSafetyRunway");
+  } else if (hasCompletion && !sectionConfirmed("assets")) {
+    missing.push("assets");
   }
   const assets = normalized.investableAssets;
   if (!assets || !finiteNumber(assets.total)) missing.push("totalAssetProgress");
   if (!finiteNumber(normalized.targetRetirementAssets) || normalized.targetRetirementAssets <= 0) {
     missing.push("targetRetirementAssets");
   }
-  if (!Array.isArray(normalized.incomeSources) || normalized.incomeSources.length === 0) {
+  if (
+    (hasCompletion && !sectionConfirmed("incomeSources")) ||
+    (!hasCompletion && (!Array.isArray(normalized.incomeSources) || normalized.incomeSources.length === 0))
+  ) {
     missing.push("incomeSource");
   }
-  if (!Array.isArray(normalized.protectionAccounts) || normalized.protectionAccounts.length === 0) {
+  if (
+    (hasCompletion && !sectionConfirmed("protectionAccounts")) ||
+    (!hasCompletion && (!Array.isArray(normalized.protectionAccounts) || normalized.protectionAccounts.length === 0))
+  ) {
     missing.push("protectionAccount");
   }
-  if (!Array.isArray(normalized.dragItems) || normalized.dragItems.length === 0) {
+  if (
+    (hasCompletion && !sectionConfirmed("dragItems")) ||
+    (!hasCompletion && (!Array.isArray(normalized.dragItems) || normalized.dragItems.length === 0))
+  ) {
     missing.push("dragItems");
   }
   const status = missing.length === 0 ? "COMPLETE" : missing.length >= 2 ? "INSUFFICIENT" : "PARTIAL";

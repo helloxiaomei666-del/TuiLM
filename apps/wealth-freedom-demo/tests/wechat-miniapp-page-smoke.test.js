@@ -89,6 +89,7 @@ function loadPage(pagePath) {
 test.beforeEach(() => {
   global.wx = createWxMock();
   storage.clearState();
+  storage.resetState();
 });
 
 test.afterEach(() => {

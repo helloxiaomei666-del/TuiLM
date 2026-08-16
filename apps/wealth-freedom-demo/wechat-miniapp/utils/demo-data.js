@@ -122,17 +122,44 @@ const defaultSecurityAccounts = {
   },
 };
 
+const schemaVersion = 2;
+const defaultInputCompletion = {
+  profile: false,
+  assets: false,
+  incomeSources: false,
+  protectionAccounts: false,
+  dragItems: false,
+};
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
 function getDefaultState() {
   return {
+    schemaVersion,
+    mode: "demo",
+    inputCompletion: clone(defaultInputCompletion),
     userProfile: clone(defaultProfile),
     holdings: clone(defaultHoldings),
     incomeStreams: clone(defaultIncomeStreams),
     manualDrags: clone(defaultManualDrags),
     securityAccounts: clone(defaultSecurityAccounts),
+    calculationSnapshots: [],
+    valuationSnapshots: [],
+  };
+}
+
+function getEmptyState() {
+  return {
+    schemaVersion,
+    mode: "user",
+    inputCompletion: clone(defaultInputCompletion),
+    userProfile: {},
+    holdings: [],
+    incomeStreams: [],
+    manualDrags: [],
+    securityAccounts: {},
     calculationSnapshots: [],
     valuationSnapshots: [],
   };
@@ -145,4 +172,5 @@ module.exports = {
   defaultManualDrags,
   defaultSecurityAccounts,
   getDefaultState,
+  getEmptyState,
 };
