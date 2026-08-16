@@ -1,6 +1,7 @@
 const calc = require("./calculation-core");
 const format = require("./format");
 const passiveIncome = require("./passive-income-model");
+const retirementIndexAdapter = require("./retirement-index-adapter");
 const valuation = require("./valuation-model");
 
 function numberOr(value, fallback = 0) {
@@ -37,10 +38,47 @@ function buildCalculationValues(state) {
   };
 }
 
+function buildCanonicalRetirementInput(state, buckets, values) {
+  const profile = state.userProfile || {};
+  return {
+    ...state,
+    monthlyEssentialExpense:
+      state.monthlyEssentialExpense !== undefined
+        ? state.monthlyEssentialExpense
+        : profile.targetMonthlyLivingCost !== undefined
+          ? profile.targetMonthlyLivingCost
+          : profile.livingCost,
+    liquidCash: state.liquidCash !== undefined ? state.liquidCash : buckets.cash,
+    investableAssets: state.investableAssets !== undefined
+      ? state.investableAssets
+      : {
+        cash: buckets.cash,
+        marketValue: buckets.investments,
+        total: buckets.currentAssets,
+      },
+    targetRetirementAssets: state.targetRetirementAssets !== undefined
+      ? state.targetRetirementAssets
+      : values.target,
+    protectionAccounts: Array.isArray(state.protectionAccounts)
+      ? state.protectionAccounts
+      : Array.isArray(state.securityAccounts)
+        ? state.securityAccounts
+        : [],
+    dragItems: Array.isArray(state.dragItems)
+      ? state.dragItems
+      : Array.isArray(state.manualDrags)
+        ? state.manualDrags
+        : [],
+  };
+}
+
 function getOverviewModel(state) {
   const values = buildCalculationValues(state);
   const result = calc.simulate(values);
   const buckets = getHoldingBuckets(state.holdings || []);
+  const canonicalRetirement = retirementIndexAdapter.calculateCanonicalRetirement(
+    buildCanonicalRetirementInput(state, buckets, values),
+  );
   const progress = calc.progressFromAssets(result.currentAssets, values.target);
   const remaining = Math.max(0, values.target - result.currentAssets);
   const securitySupport = calc.getSecuritySupport(values, result, state.securityAccounts || {});
@@ -78,11 +116,36 @@ function getOverviewModel(state) {
   const denominatorLabel = cashflow.denominator.source === "targetMonthlyLivingCost"
     ? "目标生活成本"
     : "当前生活成本";
+  const retirementIndexAvailable = canonicalRetirement.completeness.status === "COMPLETE"
+    && canonicalRetirement.retirementIndex !== null;
+  const retirementIndexText = retirementIndexAvailable
+    ? format.percent(canonicalRetirement.retirementIndex)
+    : "暂不可计算";
+  const passiveIncomeCoverageText = Number.isFinite(canonicalRetirement.passiveIncomeCoverageRate)
+    ? format.percent(canonicalRetirement.passiveIncomeCoverageRate * 100)
+    : "暂不可计算";
+  const cashSafetyRunwayText = Number.isFinite(canonicalRetirement.cashSafetyRunwayMonths)
+    ? `${canonicalRetirement.cashSafetyRunwayMonths.toFixed(1)} 月`
+    : "暂不可计算";
+  const totalAssetProgressText = Number.isFinite(canonicalRetirement.totalAssetProgress)
+    ? format.percent(canonicalRetirement.totalAssetProgress * 100)
+    : "暂不可计算";
 
   return {
     values,
     result,
     buckets,
+    retirementIndex: canonicalRetirement.retirementIndex,
+    retirementIndexText,
+    retirementIndexCompleteness: canonicalRetirement.completeness.status,
+    retirementIndexAvailable,
+    monthlyStablePassiveIncome: canonicalRetirement.monthlyStablePassiveIncome,
+    passiveIncomeCoverageRate: canonicalRetirement.passiveIncomeCoverageRate,
+    passiveIncomeCoverageText,
+    cashSafetyRunwayMonths: canonicalRetirement.cashSafetyRunwayMonths,
+    cashSafetyRunwayText,
+    totalAssetProgress: canonicalRetirement.totalAssetProgress,
+    totalAssetProgressText,
     progress,
     progressWidth: `${Math.min(100, Math.max(0, progress)).toFixed(1)}%`,
     progressText: `${progress.toFixed(1)}%`,
