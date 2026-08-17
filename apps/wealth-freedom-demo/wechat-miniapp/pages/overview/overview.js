@@ -236,4 +236,10 @@ Page({
       url: "/pages/legal/legal",
     });
   },
+
+  openIncome() {
+    wx.navigateTo({
+      url: "/pages/income/income",
+    });
+  },
 });

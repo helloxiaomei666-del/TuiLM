@@ -73,6 +73,7 @@
       <text class="focus-value">资产数据 / 保障数据</text>
     </view>
 
+    <button class="soft-action" bindtap="openIncome">收入来源</button>
     <button class="soft-action" data-page="assets" bindtap="goTab">去完善基础数据</button>
   </view>
 </view>

@@ -14,6 +14,15 @@ const canonicalDerivedFields = [
   "investableAssets",
   "targetRetirementAssets",
 ];
+const incomeDerivedFields = [
+  "monthlyAmount",
+  "netMonthlyCashflow",
+  "eligibleMonthlyPassiveIncome",
+  "includedInCoreRate",
+  "exclusionReason",
+  "originKey",
+  "duplicateOfOriginKey",
+];
 let memoryState = null;
 
 function hasWxStorage() {
@@ -67,6 +76,18 @@ function stripCanonicalDerivedFields(state) {
   return next;
 }
 
+function stripIncomeDerivedFields(income) {
+  if (!income || typeof income !== "object") {
+    return income;
+  }
+
+  const next = { ...income };
+  incomeDerivedFields.forEach((key) => {
+    delete next[key];
+  });
+  return next;
+}
+
 function migrateState(state) {
   const source = stripCanonicalDerivedFields(
     state && typeof state === "object" ? state : {},
@@ -84,7 +105,9 @@ function migrateState(state) {
       ...((source && source.userProfile) || {}),
     },
     holdings: Array.isArray(source.holdings) ? source.holdings : defaults.holdings,
-    incomeStreams: Array.isArray(source.incomeStreams) ? source.incomeStreams : defaults.incomeStreams,
+    incomeStreams: Array.isArray(source.incomeStreams)
+      ? source.incomeStreams.map(stripIncomeDerivedFields)
+      : defaults.incomeStreams,
     manualDrags: Array.isArray(source.manualDrags) ? source.manualDrags : defaults.manualDrags,
     securityAccounts: mergeSecurityAccounts(defaults.securityAccounts, source.securityAccounts),
     calculationSnapshots: Array.isArray(source.calculationSnapshots) ? source.calculationSnapshots : [],

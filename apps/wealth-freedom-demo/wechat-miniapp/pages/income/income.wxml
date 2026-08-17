@@ -1,0 +1,89 @@
+<view class="page income-page">
+  <view class="hero-card">
+    <view class="eyebrow">现金流事实</view>
+    <view class="page-title">收入来源</view>
+    <view class="page-subtitle">只记录已经发生或正在发生的收入事实，确认后将用于退休率计算。</view>
+  </view>
+
+  <view class="status-card">
+    <view class="status-label">当前确认状态</view>
+    <view class="status-text">{{incomeCompletionText}}</view>
+  </view>
+
+  <view class="section-card">
+    <view class="section-title">{{isEditing ? '编辑收入来源' : '添加收入来源'}}</view>
+    <view class="field">
+      <view class="field-label">收入类型</view>
+      <picker range="{{incomeTypeOptions}}" range-key="label" value="{{selectedIncomeTypeIndex}}" bindchange="onIncomeTypeChange">
+        <view class="picker-value">{{selectedIncomeTypeLabel}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="field-label">收入金额</view>
+      <input class="input" type="digit" value="{{form.rawAmount}}" data-field="rawAmount" bindinput="onFormInput" placeholder="请输入金额" />
+    </view>
+    <view class="field">
+      <view class="field-label">收入频率</view>
+      <picker range="{{frequencyOptions}}" range-key="label" value="{{selectedFrequencyIndex}}" bindchange="onFrequencyChange">
+        <view class="picker-value">{{selectedFrequencyLabel}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="field-label">是否已经实际到账</view>
+      <picker range="{{actualReceivedOptions}}" range-key="label" value="{{selectedActualReceivedIndex}}" bindchange="onActualReceivedChange">
+        <view class="picker-value">{{selectedActualReceivedLabel}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="field-label">是否需要持续投入劳动</view>
+      <picker range="{{requiresLaborOptions}}" range-key="label" value="{{selectedRequiresLaborIndex}}" bindchange="onRequiresLaborChange">
+        <view class="picker-value">{{selectedRequiresLaborLabel}}</view>
+      </picker>
+    </view>
+    <block wx:if="{{form.sourceType === 'rental_property'}}">
+      <view class="field">
+        <view class="field-label">相关税费</view>
+        <input class="input" type="digit" value="{{form.taxOrFee}}" data-field="taxOrFee" bindinput="onFormInput" placeholder="请输入金额" />
+      </view>
+      <view class="field">
+        <view class="field-label">维护费用</view>
+        <input class="input" type="digit" value="{{form.maintenanceCost}}" data-field="maintenanceCost" bindinput="onFormInput" placeholder="请输入金额" />
+      </view>
+      <view class="field">
+        <view class="field-label">其他必要成本</view>
+        <input class="input" type="digit" value="{{form.otherNecessaryCost}}" data-field="otherNecessaryCost" bindinput="onFormInput" placeholder="请输入金额" />
+      </view>
+    </block>
+    <view class="form-actions">
+      <button class="primary-action" bindtap="saveIncome">{{isEditing ? '保存修改' : '添加收入来源'}}</button>
+      <button wx:if="{{isEditing}}" class="secondary-action" bindtap="cancelEdit">取消编辑</button>
+    </view>
+  </view>
+
+  <view class="section-card">
+    <view class="section-title">已记录的收入来源</view>
+    <view wx:if="{{!incomeStreams.length}}" class="empty-state">暂未记录收入来源</view>
+    <view wx:for="{{incomeStreams}}" wx:key="id" class="income-item">
+      <view class="income-main">
+        <view class="income-name">{{item.sourceTypeText}}</view>
+        <view class="income-amount">{{item.amountText}}</view>
+        <view class="income-detail">{{item.actualReceivedText}} · {{item.requiresLaborText}}</view>
+      </view>
+      <view class="income-actions">
+        <button class="text-action" data-id="{{item.id}}" bindtap="editIncome">编辑</button>
+        <button class="text-action danger-action" data-id="{{item.id}}" bindtap="deleteIncome">删除</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-card confirmation-card">
+    <view wx:if="{{incomeStreams.length}}">
+      <view class="confirmation-copy">确认后，系统会以这些事实计算可计入的被动收入。</view>
+      <button class="primary-action" bindtap="confirmIncomeSources">{{confirmRecordsText}}</button>
+    </view>
+    <view wx:else>
+      <view class="confirmation-copy">如果目前没有被动收入，也请明确确认。</view>
+      <button class="secondary-action" bindtap="confirmNoIncome">{{confirmNoIncomeText}}</button>
+    </view>
+  </view>
+</view>
