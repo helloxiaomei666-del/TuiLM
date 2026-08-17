@@ -1,5 +1,6 @@
 const storage = require("../../utils/storage");
 const { getOverviewModel } = require("../../utils/overview-model");
+const { buildProtectionAccounts } = require("../../utils/security-protection-accounts-bridge");
 const {
   buildSecurityForm,
   getSecurityCategoryView,
@@ -7,6 +8,12 @@ const {
   getSecuritySummary,
   updateSecurityField,
 } = require("../../utils/security-model");
+
+function showSecurityMessage(title) {
+  if (typeof wx !== "undefined" && wx && typeof wx.showToast === "function") {
+    wx.showToast({ title, icon: "none" });
+  }
+}
 
 Page({
   data: {
@@ -29,6 +36,10 @@ Page({
     selectedGroup: null,
     selectedSecurityCategoryKey: "socialSecurity",
     selectedSecurityGroupKey: "pension",
+    securityCompletionText: "保障情况待确认",
+    hasProtectionAccounts: false,
+    confirmProtectionText: "确认以上是我当前完整的保障情况",
+    confirmNoProtectionText: "我目前没有这些保障账户",
   },
 
   onShow() {
@@ -41,6 +52,14 @@ Page({
 
   applyState(state) {
     const model = getOverviewModel(state);
+    const protectionAccounts = buildProtectionAccounts(state.securityAccounts || {});
+    const hasProtectionAccounts = protectionAccounts.length > 0;
+    const confirmed = state.inputCompletion && state.inputCompletion.protectionAccounts === true;
+    const securityCompletionText = !confirmed
+      ? "保障情况待确认"
+      : hasProtectionAccounts
+        ? "保障情况已确认"
+        : "我目前没有这些保障账户";
     const securityView = getSecurityCategoryView(
       state.securityAccounts || {},
       this.data.selectedSecurityCategoryKey,
@@ -57,6 +76,8 @@ Page({
       selectedGroup: securityView.selectedGroup,
       selectedSecurityCategoryKey: securityView.selectedCategoryKey,
       selectedSecurityGroupKey: securityView.selectedGroupKey,
+      securityCompletionText,
+      hasProtectionAccounts,
     });
   },
 
@@ -84,8 +105,48 @@ Page({
     const state = {
       ...this.data.state,
       securityAccounts,
+      inputCompletion: {
+        ...(this.data.state.inputCompletion || {}),
+        protectionAccounts: false,
+      },
     };
     storage.saveState(state);
     this.applyState(state);
+  },
+
+  confirmProtectionAccounts() {
+    const state = this.data.state;
+    if (buildProtectionAccounts(state.securityAccounts || {}).length === 0) {
+      showSecurityMessage("请先录入保障信息，或确认目前没有这些保障账户");
+      return;
+    }
+
+    const nextState = {
+      ...state,
+      inputCompletion: {
+        ...(state.inputCompletion || {}),
+        protectionAccounts: true,
+      },
+    };
+    storage.saveState(nextState);
+    this.applyState(nextState);
+  },
+
+  confirmNoProtectionAccounts() {
+    const state = this.data.state;
+    if (buildProtectionAccounts(state.securityAccounts || {}).length > 0) {
+      showSecurityMessage("请先清空或核对保障账户信息");
+      return;
+    }
+
+    const nextState = {
+      ...state,
+      inputCompletion: {
+        ...(state.inputCompletion || {}),
+        protectionAccounts: true,
+      },
+    };
+    storage.saveState(nextState);
+    this.applyState(nextState);
   },
 });

@@ -13,6 +13,7 @@ const canonicalDerivedFields = [
   "liquidCash",
   "investableAssets",
   "targetRetirementAssets",
+  "protectionAccounts",
 ];
 const incomeDerivedFields = [
   "monthlyAmount",

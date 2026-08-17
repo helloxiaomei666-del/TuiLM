@@ -2,6 +2,7 @@ const calc = require("./calculation-core");
 const format = require("./format");
 const passiveIncome = require("./passive-income-model");
 const retirementIndexAdapter = require("./retirement-index-adapter");
+const { buildProtectionAccounts } = require("./security-protection-accounts-bridge");
 const valuation = require("./valuation-model");
 
 function numberOr(value, fallback = 0) {
@@ -59,11 +60,9 @@ function buildCanonicalRetirementInput(state, buckets, values) {
     targetRetirementAssets: state.targetRetirementAssets !== undefined
       ? state.targetRetirementAssets
       : values.target,
-    protectionAccounts: Array.isArray(state.protectionAccounts)
-      ? state.protectionAccounts
-      : Array.isArray(state.securityAccounts)
-        ? state.securityAccounts
-        : [],
+    protectionAccounts: Array.isArray(state.securityAccounts)
+      ? state.securityAccounts
+      : buildProtectionAccounts(state.securityAccounts || {}),
     dragItems: Array.isArray(state.dragItems)
       ? state.dragItems
       : Array.isArray(state.manualDrags)

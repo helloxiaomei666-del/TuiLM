@@ -104,4 +104,15 @@
       </view>
     </view>
   </view>
+
+  <view class="card form-actions">
+    <text class="form-title">{{securityCompletionText}}</text>
+    <text class="form-note">确认表示你已检查当前页面内容；不会把预计月领计入当前被动收入。</text>
+    <button wx:if="{{hasProtectionAccounts}}" bindtap="confirmProtectionAccounts">
+      {{confirmProtectionText}}
+    </button>
+    <button wx:if="{{!hasProtectionAccounts}}" bindtap="confirmNoProtectionAccounts">
+      {{confirmNoProtectionText}}
+    </button>
+  </view>
 </view>

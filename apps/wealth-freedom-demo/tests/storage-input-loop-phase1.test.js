@@ -91,6 +91,51 @@ function assertNoCanonicalFields(state) {
   });
 }
 
+function phase3SecurityAccounts() {
+  return {
+    pension: {
+      balance: 100000,
+      yearsPaid: 12,
+      personalMonthly: 800,
+      employerMonthly: 1600,
+      estimatedMonthlyBenefit: 3000,
+    },
+    housingFund: {
+      balance: 50000,
+      personalMonthly: 900,
+      employerMonthly: 900,
+      loanOffsetMonthly: 400,
+    },
+    supplementalHousingFund: {
+      balance: 12000,
+      personalMonthly: 200,
+      employerMonthly: 200,
+      loanOffsetMonthly: 100,
+    },
+    enterpriseAnnuity: {
+      balance: 30000,
+      personalMonthly: 300,
+      employerMonthly: 300,
+      estimatedMonthlyBenefit: 600,
+    },
+    occupationalAnnuity: {
+      balance: 20000,
+      personalMonthly: 250,
+      employerMonthly: 250,
+      estimatedMonthlyBenefit: 500,
+    },
+  };
+}
+
+function staleProtectionAccounts() {
+  return [{
+    id: "stale",
+    type: "social_security",
+    futureEstimatedMonthlyAmount: 99999,
+    actualMonthlyReceived: 99999,
+  }];
+}
+
 test("standard state declares schema version 2", () => {
   const state = demoData.getDefaultState();
 
@@ -316,6 +361,91 @@ test("saveState strips canonical derived fields before wx persistence", () => {
     assertNoCanonicalFields(saved);
     assertNoCanonicalFields(wxStorage.read(storage.storageKey));
   });
+});
+
+test("migration strips stale protectionAccounts without losing raw Security facts", () => {
+  const securityAccounts = phase3SecurityAccounts();
+  const migrated = storage.migrateState({
+    schemaVersion: 2,
+    mode: "user",
+    securityAccounts,
+    protectionAccounts: staleProtectionAccounts(),
+  });
+
+  assert.equal(Object.prototype.hasOwnProperty.call(migrated, "protectionAccounts"), false);
+  assert.deepEqual(migrated.securityAccounts, securityAccounts);
+});
+
+test("wx save and reload strip stale protectionAccounts while preserving raw Security facts", () => {
+  const securityAccounts = phase3SecurityAccounts();
+  const state = {
+    schemaVersion: 2,
+    mode: "user",
+    securityAccounts,
+    protectionAccounts: staleProtectionAccounts(),
+  };
+
+  withWxStorage({}, (wxStorage) => {
+    const saved = storage.saveState(state);
+    const reloaded = reloadStorageModule().loadState();
+
+    assert.equal(Object.prototype.hasOwnProperty.call(saved, "protectionAccounts"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(reloaded, "protectionAccounts"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(wxStorage.read(storage.storageKey), "protectionAccounts"), false);
+    assert.deepEqual(reloaded.securityAccounts, securityAccounts);
+  });
+});
+
+test("memory save and reload strip stale protectionAccounts while preserving raw Security facts", () => {
+  const securityAccounts = phase3SecurityAccounts();
+  storage.clearState();
+  try {
+    const saved = storage.saveState({
+      schemaVersion: 2,
+      mode: "user",
+      securityAccounts,
+      protectionAccounts: staleProtectionAccounts(),
+    });
+    const reloaded = storage.loadState();
+
+    assert.equal(Object.prototype.hasOwnProperty.call(saved, "protectionAccounts"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(reloaded, "protectionAccounts"), false);
+    assert.deepEqual(reloaded.securityAccounts, securityAccounts);
+  } finally {
+    storage.clearState();
+  }
+});
+
+test("stale protectionAccounts cannot survive reload or override fresh Security bridge data", () => {
+  storage.clearState();
+  try {
+    storage.saveState({
+      schemaVersion: 2,
+      mode: "user",
+      inputCompletion: completeSections(),
+      userProfile: {
+        targetMonthlyLivingCost: 6000,
+        livingCost: 6000,
+        target: 2000000,
+      },
+      holdings: [
+        { id: "cash", type: "cash", currentValue: 18000 },
+        { id: "fund", type: "stock", currentValue: 1000000 },
+      ],
+      incomeStreams: [],
+      manualDrags: [],
+      securityAccounts: phase3SecurityAccounts(),
+      protectionAccounts: staleProtectionAccounts(),
+    });
+    const reloaded = storage.loadState();
+    const overview = getOverviewModel(reloaded);
+
+    assert.equal(Object.prototype.hasOwnProperty.call(reloaded, "protectionAccounts"), false);
+    assert.equal(overview.retirementIndexCompleteness, "COMPLETE");
+    assert.notEqual(overview.monthlyStablePassiveIncome, 99999);
+  } finally {
+    storage.clearState();
+  }
 });
 
 test("saved raw facts drive overview canonical values after stale fields are stripped", () => {
