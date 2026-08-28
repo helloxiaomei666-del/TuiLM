@@ -1,4 +1,5 @@
 const { getDefaultState, getEmptyState } = require("./demo-data");
+const { validateLiabilityFacts } = require("./liability-model");
 
 const storageKey = "wealth-miniapp-state-v1";
 const inputCompletionKeys = [
@@ -7,13 +8,23 @@ const inputCompletionKeys = [
   "incomeSources",
   "protectionAccounts",
   "dragItems",
+  "liabilities",
+];
+const snapshotDerivedFields = [
+  "protectionAccounts",
+  "dragItems",
+  "totalLiabilities",
+  "totalMonthlyPayment",
+  "uncoveredMonthlyPayment",
+  "effectiveEssentialExpense",
+  "investableNetAssets",
 ];
 const canonicalDerivedFields = [
   "monthlyEssentialExpense",
   "liquidCash",
   "investableAssets",
   "targetRetirementAssets",
-  "protectionAccounts",
+  ...snapshotDerivedFields,
 ];
 const incomeDerivedFields = [
   "monthlyAmount",
@@ -77,6 +88,26 @@ function stripCanonicalDerivedFields(state) {
   return next;
 }
 
+function stripSnapshotDerivedFields(value, isInputCompletion = false) {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripSnapshotDerivedFields(item));
+  }
+  if (!value || typeof value !== "object") return value;
+
+  const next = { ...value };
+  Object.keys(next).forEach((key) => {
+    // These booleans are historical confirmation facts, not derived payloads.
+    const isConfirmationFact = isInputCompletion && typeof value[key] === "boolean"
+      && (key === "protectionAccounts" || key === "dragItems");
+    if (snapshotDerivedFields.includes(key) && !isConfirmationFact) {
+      delete next[key];
+    } else {
+      next[key] = stripSnapshotDerivedFields(value[key], key === "inputCompletion");
+    }
+  });
+  return next;
+}
+
 function stripIncomeDerivedFields(income) {
   if (!income || typeof income !== "object") {
     return income;
@@ -89,18 +120,31 @@ function stripIncomeDerivedFields(income) {
   return next;
 }
 
+function normalizeV3Liabilities(source, isV3) {
+  if (!isV3) return [];
+
+  const validation = validateLiabilityFacts(source.liabilities);
+  if (!validation.ok) throw new Error(validation.message);
+  return validation.value;
+}
+
 function migrateState(state) {
   const source = stripCanonicalDerivedFields(
     state && typeof state === "object" ? state : {},
   );
+  const isV3 = source.schemaVersion === 3;
   const mode = source.mode === "demo" ? "demo" : "user";
   const defaults = mode === "demo" ? getDefaultState() : getEmptyState();
+  const inputCompletion = normalizeInputCompletion(source.inputCompletion, mode);
   return {
     ...defaults,
     ...source,
-    schemaVersion: 2,
+    schemaVersion: 3,
     mode,
-    inputCompletion: normalizeInputCompletion(source.inputCompletion, mode),
+    inputCompletion: {
+      ...inputCompletion,
+      liabilities: isV3 ? inputCompletion.liabilities : false,
+    },
     userProfile: {
       ...defaults.userProfile,
       ...((source && source.userProfile) || {}),
@@ -110,9 +154,12 @@ function migrateState(state) {
       ? source.incomeStreams.map(stripIncomeDerivedFields)
       : defaults.incomeStreams,
     manualDrags: Array.isArray(source.manualDrags) ? source.manualDrags : defaults.manualDrags,
+    liabilities: normalizeV3Liabilities(source, isV3),
     securityAccounts: mergeSecurityAccounts(defaults.securityAccounts, source.securityAccounts),
-    calculationSnapshots: Array.isArray(source.calculationSnapshots) ? source.calculationSnapshots : [],
-    valuationSnapshots: Array.isArray(source.valuationSnapshots) ? source.valuationSnapshots : [],
+    calculationSnapshots: Array.isArray(source.calculationSnapshots)
+      ? stripSnapshotDerivedFields(source.calculationSnapshots) : [],
+    valuationSnapshots: Array.isArray(source.valuationSnapshots)
+      ? stripSnapshotDerivedFields(source.valuationSnapshots) : [],
   };
 }
 

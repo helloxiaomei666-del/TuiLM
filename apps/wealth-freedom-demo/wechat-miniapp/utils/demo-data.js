@@ -122,13 +122,14 @@ const defaultSecurityAccounts = {
   },
 };
 
-const schemaVersion = 2;
+const schemaVersion = 3;
 const defaultInputCompletion = {
   profile: false,
   assets: false,
   incomeSources: false,
   protectionAccounts: false,
   dragItems: false,
+  liabilities: false,
 };
 
 function clone(value) {
@@ -144,6 +145,7 @@ function getDefaultState() {
     holdings: clone(defaultHoldings),
     incomeStreams: clone(defaultIncomeStreams),
     manualDrags: clone(defaultManualDrags),
+    liabilities: [],
     securityAccounts: clone(defaultSecurityAccounts),
     calculationSnapshots: [],
     valuationSnapshots: [],
@@ -159,6 +161,7 @@ function getEmptyState() {
     holdings: [],
     incomeStreams: [],
     manualDrags: [],
+    liabilities: [],
     securityAccounts: {},
     calculationSnapshots: [],
     valuationSnapshots: [],

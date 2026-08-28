@@ -7,6 +7,8 @@ const { getOverviewModel } = require("../wechat-miniapp/utils/overview-model.js"
 const canonicalAdapter = require("../wechat-miniapp/utils/retirement-index-adapter.js");
 const canonicalFixture = require("./fixtures/retirement-index-v1.fixture.js");
 const phase1Fixture = require("./fixtures/input-loop-phase1.fixture.js");
+const liabilityFixture = require("./fixtures/liability-facts-phase4a.fixture.js");
+const { validateLiabilityFacts } = require("../wechat-miniapp/utils/liability-model.js");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -19,6 +21,7 @@ function expectedUnconfirmedCompletion() {
     incomeSources: false,
     protectionAccounts: false,
     dragItems: false,
+    liabilities: false,
   };
 }
 
@@ -29,15 +32,23 @@ function completeSections(overrides = {}) {
     incomeSources: true,
     protectionAccounts: true,
     dragItems: true,
+    liabilities: false,
     ...overrides,
   };
 }
 
-const forbiddenCanonicalFields = [
+const forbiddenDerivedFields = [
   "monthlyEssentialExpense",
   "liquidCash",
   "investableAssets",
   "targetRetirementAssets",
+  "protectionAccounts",
+  "dragItems",
+  "totalLiabilities",
+  "totalMonthlyPayment",
+  "uncoveredMonthlyPayment",
+  "effectiveEssentialExpense",
+  "investableNetAssets",
 ];
 
 function createWxStorage(seed = {}) {
@@ -45,6 +56,7 @@ function createWxStorage(seed = {}) {
     Object.entries(seed).map(([key, value]) => [key, clone(value)]),
   );
   let writeCount = 0;
+  let removeCount = 0;
   return {
     wx: {
       getStorageSync(key) {
@@ -55,6 +67,7 @@ function createWxStorage(seed = {}) {
         records.set(key, clone(value));
       },
       removeStorageSync(key) {
+        removeCount += 1;
         records.delete(key);
       },
     },
@@ -63,6 +76,9 @@ function createWxStorage(seed = {}) {
     },
     get writeCount() {
       return writeCount;
+    },
+    get removeCount() {
+      return removeCount;
     },
   };
 }
@@ -85,10 +101,32 @@ function reloadStorageModule() {
   return require("../wechat-miniapp/utils/storage.js");
 }
 
-function assertNoCanonicalFields(state) {
-  forbiddenCanonicalFields.forEach((key) => {
+function assertNoDerivedFields(state) {
+  forbiddenDerivedFields.forEach((key) => {
     assert.equal(Object.prototype.hasOwnProperty.call(state, key), false, `${key} must not persist`);
   });
+}
+
+function validV3LiabilityState(overrides = {}) {
+  return {
+    schemaVersion: 3,
+    mode: "user",
+    inputCompletion: completeSections({ liabilities: true }),
+    userProfile: {
+      livingCost: 5000,
+      targetMonthlyLivingCost: 6000,
+      target: 2000000,
+      mortgage: 3000,
+      carLoan: 400,
+      otherDebt: 200,
+    },
+    holdings: clone(phase1Fixture.legacyState.holdings),
+    incomeStreams: [],
+    manualDrags: clone(phase1Fixture.legacyState.manualDrags),
+    securityAccounts: phase3SecurityAccounts(),
+    liabilities: clone(liabilityFixture.validLiabilities),
+    ...overrides,
+  };
 }
 
 function phase3SecurityAccounts() {
@@ -136,19 +174,40 @@ function staleProtectionAccounts() {
   }];
 }
 
-test("standard state declares schema version 2", () => {
+test("standard state declares schema version 3 with an empty unconfirmed liability section", () => {
   const state = demoData.getDefaultState();
 
-  assert.equal(state.schemaVersion, 2);
+  assert.equal(state.schemaVersion, 3);
+  assert.deepEqual(state.liabilities, []);
+  assert.equal(state.inputCompletion.liabilities, false);
 });
 
-test("legacy state migration upgrades the schema without dropping valid data", () => {
-  const migrated = storage.migrateState(clone(phase1Fixture.legacyState));
+test("v2 migration creates no liabilities while preserving legacy facts and completion", () => {
+  const legacy = {
+    ...clone(phase1Fixture.legacyState),
+    schemaVersion: 2,
+    mode: "user",
+    userProfile: {
+      ...phase1Fixture.legacyState.userProfile,
+      mortgage: 3000,
+      carLoan: 400,
+      otherDebt: 200,
+    },
+    inputCompletion: completeSections({ liabilities: true }),
+    liabilities: clone(liabilityFixture.validLiabilities),
+  };
+  const migrated = storage.migrateState(legacy);
 
-  assert.equal(migrated.schemaVersion, 2);
-  assert.deepEqual(migrated.holdings, phase1Fixture.legacyState.holdings);
-  assert.deepEqual(migrated.securityAccounts.pension, phase1Fixture.legacyState.securityAccounts.pension);
-  assert.deepEqual(migrated.manualDrags, phase1Fixture.legacyState.manualDrags);
+  assert.equal(migrated.schemaVersion, 3);
+  assert.deepEqual(migrated.liabilities, []);
+  assert.equal(migrated.inputCompletion.liabilities, false);
+  assert.deepEqual(migrated.inputCompletion, completeSections({ liabilities: false }));
+  assert.equal(migrated.userProfile.mortgage, 3000);
+  assert.equal(migrated.userProfile.carLoan, 400);
+  assert.equal(migrated.userProfile.otherDebt, 200);
+  assert.deepEqual(migrated.holdings, legacy.holdings);
+  assert.deepEqual(migrated.securityAccounts.pension, legacy.securityAccounts.pension);
+  assert.deepEqual(migrated.manualDrags, legacy.manualDrags);
   assert.deepEqual(migrated.incomeStreams, []);
 });
 
@@ -303,10 +362,10 @@ test("legacy wx load persists migrated V2 state and preserves facts", () => {
     const loaded = storage.loadState();
     const persisted = wxStorage.read(storage.storageKey);
 
-    assert.equal(loaded.schemaVersion, 2);
+    assert.equal(loaded.schemaVersion, 3);
     assert.equal(loaded.mode, "user");
     assert.deepEqual(loaded.inputCompletion, expectedUnconfirmedCompletion());
-    assert.equal(persisted.schemaVersion, 2);
+    assert.equal(persisted.schemaVersion, 3);
     assert.equal(persisted.mode, "user");
     assert.deepEqual(persisted.inputCompletion, expectedUnconfirmedCompletion());
     assert.deepEqual(persisted.userProfile, legacy.userProfile);
@@ -326,7 +385,7 @@ test("migrated wx state remains stable on a second load without another write", 
     assert.equal(writesAfterMigration, 1);
     assert.equal(wxStorage.writeCount, writesAfterMigration);
     assert.deepEqual(second, first);
-    assert.equal(second.schemaVersion, 2);
+    assert.equal(second.schemaVersion, 3);
     assert.equal(second.mode, "user");
   });
 });
@@ -338,12 +397,14 @@ test("migration strips stale canonical derived fields from wx storage", () => {
     liquidCash: 999999,
     investableAssets: { total: 999999999 },
     targetRetirementAssets: 888888888,
+    dragItems: [{ type: "mortgage", score: 20 }],
+    ...liabilityFixture.staleLiabilityDerivedFields,
   };
   withWxStorage({ [storage.storageKey]: legacy }, (wxStorage) => {
     const loaded = storage.loadState();
 
-    assertNoCanonicalFields(loaded);
-    assertNoCanonicalFields(wxStorage.read(storage.storageKey));
+    assertNoDerivedFields(loaded);
+    assertNoDerivedFields(wxStorage.read(storage.storageKey));
   });
 });
 
@@ -354,14 +415,377 @@ test("saveState strips canonical derived fields before wx persistence", () => {
     liquidCash: 999999,
     investableAssets: { total: 999999999 },
     targetRetirementAssets: 888888888,
+    dragItems: [{ type: "mortgage", score: 20 }],
+    ...liabilityFixture.staleLiabilityDerivedFields,
   };
   withWxStorage({}, (wxStorage) => {
     const saved = storage.saveState(state);
 
-    assertNoCanonicalFields(saved);
-    assertNoCanonicalFields(wxStorage.read(storage.storageKey));
+    assertNoDerivedFields(saved);
+    assertNoDerivedFields(wxStorage.read(storage.storageKey));
   });
 });
+
+test("v3 liabilities round-trip as raw facts through wx storage while derived values are stripped", () => {
+  const state = {
+    ...validV3LiabilityState(),
+    dragItems: [{ type: "mortgage", score: 20 }],
+    protectionAccounts: staleProtectionAccounts(),
+    ...liabilityFixture.staleLiabilityDerivedFields,
+  };
+  withWxStorage({}, (wxStorage) => {
+    const saved = storage.saveState(state);
+    const reloaded = reloadStorageModule().loadState();
+    const persisted = wxStorage.read(storage.storageKey);
+
+    assert.equal(saved.schemaVersion, 3);
+    assert.deepEqual(saved.liabilities, liabilityFixture.validLiabilities);
+    assert.equal(saved.inputCompletion.liabilities, true);
+    assert.equal(saved.inputCompletion.profile, true);
+    assertNoDerivedFields(saved);
+    assert.deepEqual(reloaded.liabilities, liabilityFixture.validLiabilities);
+    assert.equal(reloaded.inputCompletion.liabilities, true);
+    assertNoDerivedFields(reloaded);
+    assertNoDerivedFields(persisted);
+  });
+});
+
+test("v3 liabilities round-trip as raw facts through the memory fallback", () => {
+  storage.clearState();
+  try {
+    const saved = storage.saveState({
+      ...validV3LiabilityState(),
+      dragItems: [{ type: "mortgage", score: 20 }],
+      ...liabilityFixture.staleLiabilityDerivedFields,
+    });
+    const reloaded = storage.loadState();
+
+    assert.deepEqual(saved.liabilities, liabilityFixture.validLiabilities);
+    assertNoDerivedFields(saved);
+    assert.deepEqual(reloaded.liabilities, liabilityFixture.validLiabilities);
+    assert.equal(reloaded.inputCompletion.liabilities, true);
+    assertNoDerivedFields(reloaded);
+  } finally {
+    storage.clearState();
+  }
+});
+
+test("v3 save rejects an invalid complete liability array without changing persisted facts", () => {
+  const validState = validV3LiabilityState();
+  const invalidState = validV3LiabilityState({
+    liabilities: [{
+      ...liabilityFixture.validLiabilities[0],
+      outstandingBalance: 0,
+    }],
+  });
+  withWxStorage({}, (wxStorage) => {
+    storage.saveState(validState);
+    const before = wxStorage.read(storage.storageKey);
+
+    assert.throws(
+      () => storage.saveState(invalidState),
+      /负债/,
+    );
+    assert.deepEqual(wxStorage.read(storage.storageKey), before);
+  });
+});
+
+test("v3 save rejects a non-array liability value without changing persisted facts", () => {
+  const validState = validV3LiabilityState();
+  const invalidState = validV3LiabilityState({ liabilities: {} });
+  withWxStorage({}, (wxStorage) => {
+    storage.saveState(validState);
+    const before = wxStorage.read(storage.storageKey);
+
+    assert.throws(
+      () => storage.saveState(invalidState),
+      /负债/,
+    );
+    assert.deepEqual(wxStorage.read(storage.storageKey), before);
+  });
+});
+
+const malformedLiabilityCases = [
+  ...[
+    ["null", null],
+    ["object", {}],
+    ["string", "invalid"],
+    ["number", 123],
+    ["boolean", false],
+    ["undefined", undefined],
+    ["missing", undefined],
+  ].map(([name, value]) => ({ name, value, message: "负债列表格式无效" })),
+  {
+    name: "invalid item after a valid fact",
+    value: [
+      liabilityFixture.validLiabilities[0],
+      { ...liabilityFixture.validLiabilities[1], outstandingBalance: 0 },
+    ],
+    message: "请输入大于 0 的有效负债余额",
+  },
+  {
+    name: "duplicate IDs",
+    value: [liabilityFixture.validLiabilities[0], liabilityFixture.validLiabilities[0]],
+    message: "负债编号重复",
+  },
+];
+
+function malformedV3State(example, confirmed) {
+  const state = validV3LiabilityState({
+    liabilities: structuredClone(example.value),
+    inputCompletion: completeSections({ liabilities: confirmed }),
+    ...liabilityFixture.staleLiabilityDerivedFields,
+    protectionAccounts: staleProtectionAccounts(),
+    dragItems: [{ type: "mortgage", score: 20 }],
+  });
+  if (example.name === "missing") delete state.liabilities;
+  return state;
+}
+
+for (const example of malformedLiabilityCases) {
+  for (const confirmed of [true, false]) {
+    test(`malformed v3 ${example.name} load rejects with completion=${confirmed} and zero writes`, () => {
+      const invalid = malformedV3State(example, confirmed);
+      const original = structuredClone(invalid);
+      // The wx JSON clone omits explicit undefined; direct boundaries cover it below.
+      withWxStorage({ [storage.storageKey]: invalid }, (wxStorage) => {
+        const before = wxStorage.read(storage.storageKey);
+        assert.equal(before.inputCompletion.liabilities, confirmed);
+        assert.throws(() => storage.loadState(), { message: example.message });
+        assert.throws(() => reloadStorageModule().loadState(), { message: example.message });
+        assert.equal(wxStorage.writeCount, 0);
+        assert.equal(wxStorage.removeCount, 0);
+        assert.deepEqual(wxStorage.read(storage.storageKey), before);
+        assert.deepEqual(invalid, original);
+      });
+    });
+  }
+
+  test(`malformed v3 ${example.name} save and migration share the real validator without mutation`, () => {
+    for (const confirmed of [true, false]) {
+      const invalid = malformedV3State(example, confirmed);
+      const original = structuredClone(invalid);
+      const validation = validateLiabilityFacts(invalid.liabilities);
+      assert.equal(validation.ok, false);
+      assert.equal(validation.message, example.message);
+      withWxStorage({ [storage.storageKey]: validV3LiabilityState() }, (wxStorage) => {
+        const before = wxStorage.read(storage.storageKey);
+        assert.throws(() => storage.saveState(invalid), { message: example.message });
+        assert.throws(() => storage.migrateState(invalid), { message: example.message });
+        assert.equal(wxStorage.writeCount, 0);
+        assert.equal(wxStorage.removeCount, 0);
+        assert.deepEqual(wxStorage.read(storage.storageKey), before);
+        assert.deepEqual(invalid, original);
+      });
+    }
+  });
+}
+
+test("malformed v3 saves and migrations leave the valid memory state intact", () => {
+  const memoryStorage = reloadStorageModule();
+  const saved = memoryStorage.saveState(validV3LiabilityState());
+  for (const example of malformedLiabilityCases) {
+    for (const confirmed of [true, false]) {
+      const invalid = malformedV3State(example, confirmed);
+      const before = structuredClone(invalid);
+      assert.throws(() => memoryStorage.saveState(invalid), { message: example.message });
+      assert.throws(() => memoryStorage.migrateState(invalid), { message: example.message });
+      assert.deepEqual(invalid, before);
+      assert.deepEqual(memoryStorage.loadState(), saved);
+    }
+  }
+});
+
+test("v2 without liabilities initializes empty and unconfirmed on migration and wx load", () => {
+  const legacy = {
+    ...clone(phase1Fixture.legacyState),
+    schemaVersion: 2,
+    mode: "user",
+    inputCompletion: completeSections({ liabilities: true }),
+  };
+  const before = clone(legacy);
+  assert.equal(Object.hasOwn(legacy, "liabilities"), false);
+  const migrated = storage.migrateState(legacy);
+  assert.equal(migrated.schemaVersion, 3);
+  assert.deepEqual(migrated.liabilities, []);
+  assert.deepEqual(migrated.inputCompletion, completeSections({ liabilities: false }));
+  assert.deepEqual(migrated.userProfile, legacy.userProfile);
+  assert.deepEqual(migrated.manualDrags, legacy.manualDrags);
+  assert.deepEqual(legacy, before);
+  withWxStorage({ [storage.storageKey]: legacy }, (wxStorage) => {
+    assert.deepEqual(storage.loadState(), migrated);
+    assert.deepEqual(wxStorage.read(storage.storageKey), migrated);
+    assert.deepEqual(reloadStorageModule().loadState(), migrated);
+    assert.equal(wxStorage.writeCount, 1);
+    assert.equal(wxStorage.removeCount, 0);
+  });
+});
+
+for (const mode of ["user", "demo"]) {
+  for (const confirmed of [true, false]) {
+    for (const hasLiabilities of [true, false]) {
+      test(`valid v3 remains stable: mode=${mode}, completion=${confirmed}, facts=${hasLiabilities}`, () => {
+        const state = validV3LiabilityState({
+          mode,
+          liabilities: hasLiabilities ? clone(liabilityFixture.validLiabilities) : [],
+          inputCompletion: completeSections({ assets: false, dragItems: false, liabilities: confirmed }),
+        });
+        const before = clone(state);
+        const migrated = storage.migrateState(state);
+        assert.equal(migrated.schemaVersion, 3);
+        assert.deepEqual(migrated.liabilities, state.liabilities);
+        assert.deepEqual(migrated.inputCompletion, mode === "user"
+          ? state.inputCompletion : expectedUnconfirmedCompletion());
+        assert.deepEqual(storage.migrateState(migrated), migrated);
+        assert.deepEqual(state, before);
+        withWxStorage({}, (wxStorage) => {
+          assert.deepEqual(storage.saveState(state), migrated);
+          assert.deepEqual(storage.loadState(), migrated);
+          assert.deepEqual(reloadStorageModule().loadState(), migrated);
+          assert.deepEqual(wxStorage.read(storage.storageKey), migrated);
+          assert.equal(wxStorage.writeCount, 1);
+          assert.equal(wxStorage.removeCount, 0);
+        });
+        const memoryStorage = reloadStorageModule();
+        assert.deepEqual(memoryStorage.saveState(state), migrated);
+        assert.deepEqual(memoryStorage.loadState(), migrated);
+        assert.deepEqual(memoryStorage.loadState(), migrated);
+      });
+    }
+  }
+}
+
+function cleanSnapshotHistory() {
+  return [{
+    id: "history-later",
+    snapshotDate: "2026-08-22",
+    totalValue: 100000,
+    monthlyEssentialExpense: 5000,
+    liquidCash: 18000,
+    investableAssets: { total: 100000 },
+    targetRetirementAssets: 2000000,
+    inputCompletion: { profile: true, protectionAccounts: true, dragItems: false, liabilities: true },
+    items: [{ holdingId: "cash", currentValue: 100000, source: "manual" }],
+    details: {
+      note: "保留历史，不按当前事实重算",
+      history: [
+        [{
+          manualDrags: [{ type: "mortgage", monthlyAmount: 3000 }],
+          securityAccounts: { pension: { balance: 12345 } },
+          inputCompletion: { protectionAccounts: false, dragItems: true },
+        }],
+        { inputCompletion: { profile: false } },
+        null, false, 0, "历史备注",
+      ],
+    },
+  }, {
+    id: "history-earlier",
+    snapshotDate: "2026-08-20",
+    totalValue: 99000,
+    dailyChange: -1000,
+    inputCompletion: { protectionAccounts: false, dragItems: true },
+    items: [{ holdingId: "cash", currentValue: 99000, source: "manual" }],
+  }];
+}
+
+function dirtySnapshotHistory() {
+  const history = cleanSnapshotHistory();
+  const derivedPayloads = {
+    ...liabilityFixture.staleLiabilityDerivedFields,
+    protectionAccounts: staleProtectionAccounts(),
+    dragItems: [{ type: "mortgage", score: 20 }],
+  };
+  for (const record of history) {
+    Object.assign(record, clone(derivedPayloads));
+    Object.assign(record.items[0], clone(derivedPayloads));
+    // Summary values are still prohibited inside a confirmation object.
+    Object.assign(record.inputCompletion, liabilityFixture.staleLiabilityDerivedFields);
+  }
+  Object.assign(history[0].details, clone(derivedPayloads));
+  Object.assign(history[0].details.history[0][0], clone(derivedPayloads));
+  Object.assign(history[0].details.history[0][0].inputCompletion, liabilityFixture.staleLiabilityDerivedFields);
+  // Only boolean confirmation facts get the same-name exception, not payloads.
+  Object.assign(history[0].details.history[1].inputCompletion, clone(derivedPayloads));
+  return history;
+}
+
+function assertSanitizedSnapshotState(actual, input, container) {
+  assertNoDerivedFields(actual);
+  assert.equal(actual.schemaVersion, 3);
+  assert.deepEqual(actual[container], cleanSnapshotHistory());
+  assert.deepEqual(actual.liabilities, input.schemaVersion === 3 ? input.liabilities : []);
+  assert.deepEqual(actual.inputCompletion, {
+    ...input.inputCompletion,
+    liabilities: input.schemaVersion === 3,
+  });
+  assert.deepEqual(actual.userProfile, input.userProfile);
+  assert.deepEqual(actual.holdings, input.holdings);
+  assert.deepEqual(actual.incomeStreams, input.incomeStreams);
+  assert.deepEqual(actual.manualDrags, input.manualDrags);
+  assert.deepEqual(actual.securityAccounts, input.securityAccounts);
+}
+
+for (const container of ["calculationSnapshots", "valuationSnapshots"]) {
+  for (const schemaVersion of [2, 3]) {
+    function snapshotState() {
+      return validV3LiabilityState({
+        schemaVersion,
+        [container]: dirtySnapshotHistory(),
+        ...liabilityFixture.staleLiabilityDerivedFields,
+        protectionAccounts: staleProtectionAccounts(),
+        dragItems: [{ type: "mortgage", score: 20 }],
+      });
+    }
+
+    test(`v${schemaVersion} ${container} migration strips nested payloads and preserves exact history`, () => {
+      const input = snapshotState();
+      const before = clone(input);
+      const migrated = storage.migrateState(input);
+      assertSanitizedSnapshotState(migrated, input, container);
+      assert.deepEqual(storage.migrateState(migrated), migrated);
+      assert.deepEqual(input, before);
+    });
+
+    test(`v${schemaVersion} ${container} wx save persists only clean history`, () => {
+      const input = snapshotState();
+      const before = clone(input);
+      withWxStorage({}, (wxStorage) => {
+        const saved = storage.saveState(input);
+        assertSanitizedSnapshotState(saved, input, container);
+        assert.deepEqual(wxStorage.read(storage.storageKey), saved);
+        assert.deepEqual(reloadStorageModule().loadState(), saved);
+        assert.equal(wxStorage.writeCount, 1);
+        assert.equal(wxStorage.removeCount, 0);
+      });
+      assert.deepEqual(input, before);
+    });
+
+    test(`v${schemaVersion} ${container} dirty wx load sanitizes once without losing history`, () => {
+      const input = snapshotState();
+      const before = clone(input);
+      withWxStorage({ [storage.storageKey]: input }, (wxStorage) => {
+        const loaded = storage.loadState();
+        assertSanitizedSnapshotState(loaded, input, container);
+        assert.deepEqual(wxStorage.read(storage.storageKey), loaded);
+        assert.deepEqual(reloadStorageModule().loadState(), loaded);
+        assert.equal(wxStorage.writeCount, 1);
+        assert.equal(wxStorage.removeCount, 0);
+      });
+      assert.deepEqual(input, before);
+    });
+
+    test(`v${schemaVersion} ${container} memory save and load preserve only clean history`, () => {
+      const input = snapshotState();
+      const before = clone(input);
+      const memoryStorage = reloadStorageModule();
+      const saved = memoryStorage.saveState(input);
+      assertSanitizedSnapshotState(saved, input, container);
+      assert.deepEqual(memoryStorage.loadState(), saved);
+      assert.deepEqual(memoryStorage.loadState(), saved);
+      assert.deepEqual(input, before);
+    });
+  }
+}
 
 test("migration strips stale protectionAccounts without losing raw Security facts", () => {
   const securityAccounts = phase3SecurityAccounts();
@@ -474,7 +898,7 @@ test("saved raw facts drive overview canonical values after stale fields are str
     const reloaded = reloadStorageModule().loadState();
     const overview = getOverviewModel(reloaded);
 
-    assertNoCanonicalFields(reloaded);
+    assertNoDerivedFields(reloaded);
     assert.equal(overview.cashSafetyRunwayMonths, 3);
     assert.equal(overview.totalAssetProgress, 1018000 / 2000000);
   });
@@ -487,7 +911,7 @@ test("first launch persists demo state through wx storage", () => {
 
     assert.equal(state.mode, "demo");
     assert.equal(persisted.mode, "demo");
-    assert.equal(persisted.schemaVersion, 2);
+    assert.equal(persisted.schemaVersion, 3);
   });
 });
 

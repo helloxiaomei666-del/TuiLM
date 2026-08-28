@@ -24,6 +24,14 @@ const summaryContext = {
   investableAssetsTotal: 100000,
 };
 
+const staleLiabilityDerivedFields = {
+  totalLiabilities: 999999,
+  totalMonthlyPayment: 8888,
+  uncoveredMonthlyPayment: 7777,
+  effectiveEssentialExpense: 6666,
+  investableNetAssets: -5555,
+};
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -31,5 +39,6 @@ function clone(value) {
 module.exports = {
   validLiabilities,
   summaryContext,
+  staleLiabilityDerivedFields,
   clone,
 };
