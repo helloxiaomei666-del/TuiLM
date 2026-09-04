@@ -6,7 +6,8 @@
     "pages/route/route",
     "pages/drags/drags",
     "pages/income/income",
-    "pages/legal/legal"
+    "pages/legal/legal",
+    "pages/liabilities/liabilities"
   ],
   "window": {
     "navigationBarTitleText": "退了吗",

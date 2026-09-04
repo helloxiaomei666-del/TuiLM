@@ -25,6 +25,15 @@ function defaultForm() {
   };
 }
 
+function getLiabilityTypeView(type) {
+  const index = LIABILITY_TYPES.findIndex((item) => item.value === type);
+  const selectedIndex = index >= 0 ? index : 0;
+  return {
+    selectedLiabilityTypeIndex: selectedIndex,
+    selectedLiabilityTypeLabel: LIABILITY_TYPES[selectedIndex].label,
+  };
+}
+
 function createLiabilityId(existingLiabilities) {
   const ids = new Set((existingLiabilities || []).map((item) => item.id));
   let id;
@@ -40,11 +49,10 @@ function formatAmount(value) {
 }
 
 function getCompletionText(state) {
-  const liabilities = state.liabilities || [];
   if (!state.inputCompletion || state.inputCompletion.liabilities !== true) {
     return "负债情况待确认";
   }
-  return liabilities.length ? "负债情况已确认" : "我目前没有负债";
+  return "负债情况已确认";
 }
 
 function getLegacyReminder(state) {
@@ -89,6 +97,7 @@ Page({
     },
     liabilityTypes: LIABILITY_TYPES,
     form: defaultForm(),
+    ...getLiabilityTypeView(LIABILITY_TYPES[0].value),
     editingLiabilityId: "",
     isEditing: false,
     liabilityCompletionText: "负债情况待确认",
@@ -127,7 +136,10 @@ Page({
     const index = Number(event.detail.value);
     const type = LIABILITY_TYPES[index];
     if (!type) return;
-    this.setData({ form: { ...this.data.form, type: type.value } });
+    this.setData({
+      form: { ...this.data.form, type: type.value },
+      ...getLiabilityTypeView(type.value),
+    });
   },
 
   onIncludedInEssentialExpenseChange(event) {
@@ -136,6 +148,15 @@ Page({
     this.setData({
       form: { ...this.data.form, includedInEssentialExpense },
     });
+  },
+
+  onIncludedInEssentialExpenseUiChange(event) {
+    const value = event.detail.value;
+    if (value === "included") {
+      this.onIncludedInEssentialExpenseChange({ detail: { value: true } });
+    } else if (value === "excluded") {
+      this.onIncludedInEssentialExpenseChange({ detail: { value: false } });
+    }
   },
 
   saveLiability() {
@@ -196,7 +217,12 @@ Page({
         liabilities: false,
       },
     });
-    this.setData({ form: defaultForm(), editingLiabilityId: "", isEditing: false });
+    this.setData({
+      form: defaultForm(),
+      ...getLiabilityTypeView(LIABILITY_TYPES[0].value),
+      editingLiabilityId: "",
+      isEditing: false,
+    });
     this.applyState(savedState);
   },
 
@@ -215,11 +241,17 @@ Page({
       },
       editingLiabilityId: id,
       isEditing: true,
+      ...getLiabilityTypeView(liability.type),
     });
   },
 
   cancelEdit() {
-    this.setData({ form: defaultForm(), editingLiabilityId: "", isEditing: false });
+    this.setData({
+      form: defaultForm(),
+      ...getLiabilityTypeView(LIABILITY_TYPES[0].value),
+      editingLiabilityId: "",
+      isEditing: false,
+    });
   },
 
   deleteLiability(event) {
@@ -237,7 +269,12 @@ Page({
         },
       });
       if (this.data.editingLiabilityId === id) {
-        this.setData({ form: defaultForm(), editingLiabilityId: "", isEditing: false });
+        this.setData({
+          form: defaultForm(),
+          ...getLiabilityTypeView(LIABILITY_TYPES[0].value),
+          editingLiabilityId: "",
+          isEditing: false,
+        });
       }
       this.applyState(savedState);
     };

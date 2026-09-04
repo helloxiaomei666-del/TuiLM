@@ -1,0 +1,106 @@
+<view class="page liabilities-page">
+  <view class="hero-card">
+    <text class="eyebrow">负债事实</text>
+    <view class="page-title">负债</view>
+    <text class="page-subtitle">逐项记录当前未结清负债，避免月供在必要支出中重复计算。</text>
+    <text wx:if="{{liabilityCompletionText === '负债情况待确认'}}" class="status-text status-pending">负债情况待确认</text>
+    <text wx:elif="{{liabilityCompletionText === '负债情况已确认'}}" class="status-text status-confirmed">负债情况已确认</text>
+    <text wx:else class="status-text status-confirmed">{{liabilityCompletionText}}</text>
+  </view>
+
+  <view class="summary-row">
+    <view class="summary-card">
+      <text class="summary-label">负债总额</text>
+      <text class="summary-value">{{summary.totalLiabilitiesText}}</text>
+    </view>
+    <view class="summary-card">
+      <text class="summary-label">每月总还款</text>
+      <text class="summary-value">{{summary.totalMonthlyPaymentText}}</text>
+    </view>
+    <view class="summary-card">
+      <text class="summary-label">尚未计入必要支出的月供</text>
+      <text class="summary-value">{{summary.uncoveredMonthlyPaymentText}}</text>
+    </view>
+  </view>
+
+  <view class="section-card">
+    <view class="section-title">{{isEditing ? '编辑负债' : '添加负债'}}</view>
+
+    <view class="field">
+      <view class="field-label">负债类型</view>
+      <picker range="{{liabilityTypes}}" range-key="label" value="{{selectedLiabilityTypeIndex}}" bindchange="onLiabilityTypeChange">
+        <view class="picker-value">{{selectedLiabilityTypeLabel}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <view class="field-label">当前未偿余额</view>
+      <input class="input" type="digit" value="{{form.outstandingBalance}}" data-field="outstandingBalance" bindinput="onFormInput" placeholder="请输入大于 0 的负债余额" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">每月固定还款</view>
+      <input class="input" type="digit" value="{{form.monthlyPayment}}" data-field="monthlyPayment" bindinput="onFormInput" placeholder="请输入每月还款金额，可填写 0" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">这笔月供是否已计入必要支出</view>
+      <radio-group class="inclusion-options" bindchange="onIncludedInEssentialExpenseUiChange">
+        <label class="radio-option">
+          <radio value="included" checked="{{form.includedInEssentialExpense === true}}" color="#0f766e" />
+          <text>该月供已包含在必要支出中</text>
+        </label>
+        <label class="radio-option">
+          <radio value="excluded" checked="{{form.includedInEssentialExpense === false}}" color="#0f766e" />
+          <text>该月供尚未包含在必要支出中</text>
+        </label>
+      </radio-group>
+    </view>
+
+    <view class="field">
+      <view class="field-label">本地备注（选填）</view>
+      <input class="input" value="{{form.note}}" data-field="note" bindinput="onFormInput" placeholder="请输入备注" />
+    </view>
+
+    <view class="form-actions">
+      <button class="primary-action" bindtap="saveLiability">保存负债</button>
+      <button wx:if="{{isEditing}}" class="secondary-action" bindtap="cancelEdit">取消编辑</button>
+    </view>
+  </view>
+
+  <view class="section-card">
+    <view class="section-title">当前负债记录</view>
+    <view wx:if="{{!liabilities.length}}" class="empty-state">暂无负债记录</view>
+    <view wx:for="{{liabilities}}" wx:for-item="liability" wx:key="id" class="liability-item">
+      <view class="liability-main">
+        <view class="liability-type">
+          <block wx:for="{{liabilityTypes}}" wx:for-item="typeOption" wx:key="value">
+            <text wx:if="{{typeOption.value === liability.type}}">{{typeOption.label}}</text>
+          </block>
+        </view>
+        <text class="liability-detail">余额：{{liability.outstandingBalance}} 元</text>
+        <text class="liability-detail">月供：{{liability.monthlyPayment}} 元</text>
+        <text wx:if="{{liability.includedInEssentialExpense === true}}" class="liability-detail">该月供已包含在必要支出中</text>
+        <text wx:else class="liability-detail">该月供尚未包含在必要支出中</text>
+        <text wx:if="{{liability.note}}" class="liability-note">备注：{{liability.note}}</text>
+      </view>
+      <view class="liability-actions">
+        <button class="text-action" data-id="{{liability.id}}" bindtap="editLiability">编辑</button>
+        <button class="text-action danger-action" data-id="{{liability.id}}" bindtap="deleteLiability">删除</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-card reminder-card">
+    <view class="section-title">旧版数据说明</view>
+    <text class="reminder-copy">原有房贷、车贷和其他债务字段仍用于旧版退休时间测算的月度支出，本页不会编辑或迁移这些数据。</text>
+    <text wx:if="{{legacyReminder}}" class="reminder-copy">{{legacyReminder}}</text>
+  </view>
+
+  <view class="section-card confirmation-card">
+    <view class="section-title">确认当前负债情况</view>
+    <text class="confirmation-copy">确认后，如新增、编辑或删除记录，需要重新确认。</text>
+    <button wx:if="{{liabilities.length}}" class="primary-action confirmation-action" bindtap="confirmLiabilities">确认以上是我当前完整的负债情况</button>
+    <button wx:else class="secondary-action confirmation-action" bindtap="confirmNoLiabilities">我目前没有负债</button>
+  </view>
+</view>

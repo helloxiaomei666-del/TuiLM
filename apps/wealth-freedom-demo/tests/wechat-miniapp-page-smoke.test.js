@@ -152,6 +152,9 @@ test("overview page updates inputs, clears data, and opens legal page", () => {
   page.openLegal();
   assert.deepEqual(global.wx.navigations[0], { url: "/pages/legal/legal" });
 
+  page.openLiabilities();
+  assert.deepEqual(global.wx.navigations[1], { url: "/pages/liabilities/liabilities" });
+
   page.goTab(event({ page: "assets" }));
   page.goTab(event({ page: "security" }));
   page.goTab(event({ page: "route" }));
@@ -349,4 +352,52 @@ test("drags page accepts decimal monthly amounts and supports edit delete", () =
   assert.equal(page.data.summary.total, 0);
   assert.equal(page.data.dragTotalText, page.data.summary.totalText);
   assert.equal(page.data.summary.categoryRows.length, 0);
+});
+
+test("liability page supports add edit confirm delete and explicit confirmed-none", () => {
+  const initialState = storage.loadState();
+  storage.saveState({ ...initialState, mode: "user" });
+  const page = loadPage("pages/liabilities/liabilities.js");
+  page.onShow();
+  assert.equal(storage.loadState().inputCompletion.liabilities, false);
+  assert.equal(page.data.liabilityCompletionText, "负债情况待确认");
+  assert.equal(page.data.form.includedInEssentialExpense, null);
+
+  page.onLiabilityTypeChange({ detail: { value: "2" } });
+  page.onFormInput(event({ field: "outstandingBalance", value: "48000" }));
+  page.onFormInput(event({ field: "monthlyPayment", value: "0" }));
+  page.onFormInput(event({ field: "note", value: "本地备注" }));
+  page.onIncludedInEssentialExpenseUiChange({ detail: { value: "excluded" } });
+  page.saveLiability();
+
+  let saved = storage.loadState();
+  assert.equal(saved.liabilities.length, 1);
+  assert.equal(saved.liabilities[0].type, "consumer_loan");
+  assert.equal(saved.liabilities[0].monthlyPayment, 0);
+  assert.equal(saved.liabilities[0].includedInEssentialExpense, false);
+  assert.equal(page.data.summary.totalLiabilitiesText, "48,000 元");
+
+  const liabilityId = saved.liabilities[0].id;
+  page.editLiability(event({ id: liabilityId }));
+  assert.equal(page.data.selectedLiabilityTypeIndex, 2);
+  assert.equal(page.data.selectedLiabilityTypeLabel, "消费贷");
+  page.onFormInput(event({ field: "outstandingBalance", value: "46000" }));
+  page.onIncludedInEssentialExpenseUiChange({ detail: { value: "included" } });
+  page.saveLiability();
+
+  saved = storage.loadState();
+  assert.equal(saved.liabilities[0].id, liabilityId);
+  assert.equal(saved.liabilities[0].outstandingBalance, 46000);
+  assert.equal(saved.liabilities[0].includedInEssentialExpense, true);
+
+  page.confirmLiabilities();
+  assert.equal(storage.loadState().inputCompletion.liabilities, true);
+  assert.equal(page.data.liabilityCompletionText, "负债情况已确认");
+  page.deleteLiability(event({ id: liabilityId }));
+  assert.deepEqual(storage.loadState().liabilities, []);
+  assert.equal(storage.loadState().inputCompletion.liabilities, false);
+
+  page.confirmNoLiabilities();
+  assert.equal(storage.loadState().inputCompletion.liabilities, true);
+  assert.equal(page.data.liabilityCompletionText, "负债情况已确认");
 });

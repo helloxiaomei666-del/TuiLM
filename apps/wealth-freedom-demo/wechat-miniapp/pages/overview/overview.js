@@ -242,4 +242,10 @@ Page({
       url: "/pages/income/income",
     });
   },
+
+  openLiabilities() {
+    wx.navigateTo({
+      url: "/pages/liabilities/liabilities",
+    });
+  },
 });
