@@ -10,17 +10,22 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-22-liability-facts-expense-dedup-design.md`
 
+**Task 2 review contract revision:** This records the Task 2 storage-contract amendment made from `6b5d3c881aed43f5eed0b5564b5032f5c06c4f0b feat(miniapp): add liability fact summary model`. The Phase 4A implementation chain subsequently advanced through Task 2, Task 3, and Task 4; the current committed HEAD is `39d0fd2 feat(miniapp): add liability input page`. The amended malformed-v3 rejection and snapshot-derived-field persistence rules remain authoritative; this historical revision does not impose a current implementation or Git-operation restriction.
+
 ## Global Constraints
 
-- Work from baseline `272dca1 feat(miniapp): bridge security into retirement protection` and read the authoritative spec before each implementation task.
+- The original design baseline was `272dca1 feat(miniapp): bridge security into retirement protection`; the Task 2 review revision baseline is the full hash above. Read the authoritative spec before each implementation task; the spec takes precedence over this plan.
 - Implement `schemaVersion: 3`; v2 always migrates to `liabilities: []` and `inputCompletion.liabilities: false` while preserving legacy `userProfile.mortgage`, `carLoan`, `otherDebt`, and `manualDrags` unchanged.
+- V2 initialization is not a malformed-v3 fallback. When `schemaVersion === 3`, `liabilities` is required and must be an array accepted in full by Task 1's `validateLiabilityFacts()`. `null`, object, string, number, boolean, explicit `undefined`, missing, other non-arrays, and invalid array items fail identically at save/load/migration boundaries with the validator's Chinese error. Never replace them with `[]` or confirmed-none.
+- `MALFORMED_V3_LOAD -> ERROR -> ZERO STORAGE WRITE`: validation failure must leave the original wx record and memory state unchanged, including when liability completion is true. No `setStorageSync`, `removeStorageSync`, partial write, default-state replacement, or destructive normalization is allowed. Save failure is likewise non-writing; migration/canonicalization must not mutate its input. Validate before committing any derived-field cleanup.
 - A current liability has exactly V1 fields `id`, `type`, `outstandingBalance`, `monthlyPayment`, `includedInEssentialExpense`, `source`, and `note`; no other type is valid.
 - `outstandingBalance` is valid only when `Number.isFinite(value) && value > 0`; zero means settled and must be rejected. `monthlyPayment` is valid only when finite and greater than or equal to zero.
 - `id` is non-empty, unique within `liabilities[]`, stable after creation, preserved by editing, and not user-editable. Use the current income-page timestamp-plus-sequence local pattern in the controller, and check against existing IDs before accepting a new candidate; do not display the ID.
 - `source` is always system-written `manual` in V1. Do not add import, broker, SDK, network, quote, or synchronization behavior.
 - `includedInEssentialExpense` is an explicit boolean in every persisted `LiabilityFact`. New page-form state starts as `null` to represent “尚未选择”; `null` is temporary page state only, never a raw fact or storage value. Never infer either boolean from type, amount, legacy profile fields, `manualDrags`, title, or note.
 - The only new summary formula owner is `calculateLiabilitySummary(liabilities, context)`. It produces `totalLiabilities`, `totalMonthlyPayment`, `uncoveredMonthlyPayment`, `effectiveEssentialExpense`, and `investableNetAssets` in memory only.
-- Persist none of the five summary values, scores, recommendations, or stale top-level `dragItems`. Preserve `manualDrags` as-is.
+- Persisted raw facts include `liabilities`, `manualDrags`, and `securityAccounts`. Non-persisted derived payloads include `protectionAccounts`, `dragItems`, and the five liability summary fields; none may survive at state top level or inside `calculationSnapshots`, `valuationSnapshots`, or any other already-known Phase 4A persisted snapshot container, including nested objects and arrays. Preserve legal historical snapshot fields, records, order, and existing raw facts; do not clear snapshots, recompute history, redesign their schema, or introduce new containers. Further liability-derived scores/recommendations remain prohibited.
+- The existing boolean `inputCompletion.protectionAccounts` and `inputCompletion.dragItems` are confirmation facts, not the same-named derived payloads. Preserve their semantics and all legitimate completion fields. Do not blindly delete matching names throughout every object or expand the snapshot rule to remove every historical calculation field; preserve existing top-level canonical stripping separately.
 - The liability page may show only `负债总额`, `每月总还款`, and `尚未计入必要支出的月供`. It must not display `effectiveEssentialExpense` or `investableNetAssets`.
 - Add `inputCompletion.liabilities` as explicit user confirmation only. It must not enter the canonical retirement completeness gate.
 - Do not modify `retirement-index-adapter.js`, `retirement-index-model.js`, `calculation-core.js`, retirement-rate formulas, Drag scoring/types/gates, or the legacy retirement-time simulation.
@@ -35,7 +40,7 @@
 | --- | --- |
 | `apps/wealth-freedom-demo/wechat-miniapp/utils/liability-model.js` | Pure V1 item validation, Chinese type labels, and the five in-memory summary values. |
 | `apps/wealth-freedom-demo/wechat-miniapp/utils/demo-data.js` | Schema-v3 defaults, empty `liabilities`, and the new completion key. |
-| `apps/wealth-freedom-demo/wechat-miniapp/utils/storage.js` | v2-to-v3 migration, v3 liability validation, completion normalization, and stale `dragItems` stripping. |
+| `apps/wealth-freedom-demo/wechat-miniapp/utils/storage.js` | v2 initialization, symmetric v3 validation with zero-write failure, completion normalization, and derived stripping at state/snapshot boundaries. |
 | `apps/wealth-freedom-demo/wechat-miniapp/pages/liabilities/liabilities.js` | Controller-only CRUD, validation messages, confirmation, and presentation data. |
 | `apps/wealth-freedom-demo/wechat-miniapp/pages/liabilities/liabilities.json` | Page configuration. |
 | `apps/wealth-freedom-demo/wechat-miniapp/pages/liabilities/liabilities.wxml` | Chinese form, list, confirmation, legacy reminder, and exactly three visible summaries. |
@@ -147,14 +152,15 @@
 - Modify: `apps/wealth-freedom-demo/wechat-miniapp/utils/storage.js`
 - Modify: `apps/wealth-freedom-demo/tests/storage-input-loop-phase1.test.js`
 - Modify: `apps/wealth-freedom-demo/tests/fixtures/liability-facts-phase4a.fixture.js`
-- Create: `apps/wealth-freedom-demo/tests/liability-non-interference-phase4a.test.js`
+- Retain / modify only if required by the amended tests: `apps/wealth-freedom-demo/tests/liability-non-interference-phase4a.test.js` (already created in the retained Task 2 implementation).
 
 **Interfaces:**
 
 - `getDefaultState()` and `getEmptyState()` return `schemaVersion: 3`, `liabilities: []`, and an `inputCompletion.liabilities` value of `false`.
-- `migrateState(state)` returns a schema-v3 normalized state. For any v2 input it forces empty liabilities and false liability completion; for v3 input it retains only a valid `liabilities[]` array and normalizes its liability completion only when `mode === "user"` and the source value is exactly `true`.
-- `saveState(nextState)` validates v3 liabilities through `validateLiabilityFacts`, persists only raw liabilities, and returns/persists a state with no top-level `monthlyEssentialExpense`, `liquidCash`, `investableAssets`, `targetRetirementAssets`, `protectionAccounts`, or `dragItems`.
-- Neither function calls retirement calculation code, summary code, canonical adapter code, or the new page.
+- `migrateState(state)` returns a schema-v3 normalized state only on success. V2 forces empty liabilities and false liability completion, including the control case with no liability field. V3 must validate the source liability value before defaults can conceal a missing field; preserve only the validator's complete seven-field array, or throw `Error(validation.message)`. Non-array errors use `负债列表格式无效`. Preserve valid v3 liability completion only when `mode === "user"` and the source value is exactly `true`; do not reset an already valid confirmed state on repeated migration/load.
+- `saveState(nextState)` and `loadState()` use that same Task 1 validation boundary, not separate acceptance rules. Invalid v3 data throws a Chinese validation error without altering persisted data or the caller's object. In particular, failed load must not auto-write migration results, clear data, return defaults, or produce `[] + true`. This includes invalid states that also contain stale derived fields.
+- Successful migrate/save/load results retain only raw liabilities. Keep the existing top-level stripping of `monthlyEssentialExpense`, `liquidCash`, `investableAssets`, and `targetRetirementAssets`; also strip `protectionAccounts`, `dragItems`, and all five liability summaries from the top level and persisted snapshot structures at every nesting depth. Preserve legal snapshot facts and completion booleans under the Global Constraints. Only a successfully validated, sanitized state may be written back.
+- None of these functions calls retirement calculation code, summary code, canonical adapter code, or the new page. No recovery UI or whole-Storage rewrite is part of the fix.
 
 - [ ] **Step 1: Write the failing Storage tests and non-interference RED suite**
 
@@ -173,7 +179,79 @@
 
   Add stale `dragItems` to the existing derived-field cases and assert it is absent after `migrateState`, `saveState`, wx reload, and memory reload while `manualDrags` remains byte-for-byte equivalent. Use a legal v3 liability plus deliberately stale `effectiveEssentialExpense` and `investableNetAssets` to prove that persisted output retains only raw `liabilities`.
 
-  Create `liability-non-interference-phase4a.test.js`. It must compare `getOverviewModel()` for otherwise identical v3 states with and without valid raw liabilities and assert equality for `retirementIndex`, `totalAssetProgress`, `passiveIncomeCoverageRate`, `cashSafetyRunwayMonths`, `retirementIndexCompleteness`, `result.monthlyInvestable`, `result.months`, and `dragTotalText`. It must also deep-compare `buildCalculationValues()` output and raw `manualDrags`, then use the existing canonical adapter result to prove liability completion does not become a missing/required canonical section.
+  **Finding 1: malformed-v3 load rejection and save/load symmetry.** Extend the existing Storage test file using its real production Storage import and existing helpers. At minimum, add the following independent cases; the true completion is deliberate, and each seeded load starts with zero writes:
+
+  ```js
+  for (const malformed of [null, {}, "invalid"]) {
+    test(`malformed v3 load rejects ${JSON.stringify(malformed)} without writes`, () => {
+      const invalid = validV3LiabilityState({ liabilities: malformed });
+      withWxStorage({ [storage.storageKey]: invalid }, (wxStorage) => {
+        const before = wxStorage.read(storage.storageKey);
+        assert.equal(before.inputCompletion.liabilities, true);
+        assert.throws(() => storage.loadState(), /负债列表格式无效/);
+        assert.equal(wxStorage.writeCount, 0);
+        assert.deepEqual(wxStorage.read(storage.storageKey), before);
+        assert.throws(() => storage.migrateState(invalid), /负债列表格式无效/);
+        assert.throws(() => storage.saveState(invalid), /负债列表格式无效/);
+        assert.equal(wxStorage.writeCount, 0);
+        assert.deepEqual(wxStorage.read(storage.storageKey), before);
+        assert.deepEqual(invalid, before);
+      });
+    });
+  }
+  ```
+
+  Also cover number, boolean, explicit `undefined`, and an absent `liabilities` property; assert an empty result is never returned. The current wx mock JSON-clones its records, so explicit `undefined` becomes missing there: cover explicit `undefined` directly through save/migration and missing through seeded load. Add malformed-array cases, including an invalid item after a valid one and duplicate IDs; compare rejection messages with the real Task 1 `validateLiabilityFacts()` result. Repeat with liability completion false and with stale derived fields alongside malformed data. Track both set/remove calls in the existing helper and require neither on failure; do not create a second Storage mock. On the memory path, establish a valid saved state, attempt malformed saves/migration, and assert a subsequent real load still returns the original valid state. Do not add a production backdoor merely to seed the private memory state.
+
+  **V2 migration control and valid-v3 stability.** Preserve the existing v2 test that ignores v3-shaped extras, and add the distinct no-liability-field control:
+
+  ```js
+  const legacyWithoutLiabilities = {
+    ...clone(phase1Fixture.legacyState), schemaVersion: 2, mode: "user",
+  };
+  assert.equal(Object.hasOwn(legacyWithoutLiabilities, "liabilities"), false);
+  const initialized = storage.migrateState(legacyWithoutLiabilities);
+  assert.equal(initialized.schemaVersion, 3);
+  assert.deepEqual(initialized.liabilities, []);
+  assert.equal(initialized.inputCompletion.liabilities, false);
+  assert.deepEqual(initialized.manualDrags, legacyWithoutLiabilities.manualDrags);
+  ```
+
+  Exercise that control through wx load/writeback as well. Retain v3 empty/nonempty array round-trips, true/false liability completion, mixed existing completion flags, and repeated migration/load stability. These controls must remain GREEN while the new malformed-v3 cases are RED.
+
+  **Finding 2: snapshot derived stripping without historical loss.** Add cases for both `calculationSnapshots` and `valuationSnapshots`, and any other persisted snapshot container found in the existing Phase 4A path. Inject every field in `liabilityFixture.staleLiabilityDerivedFields` into snapshot records and into nested object/array members. Include derived `protectionAccounts` and `dragItems` payloads to enforce the same single-source rule. Assert exact equality against clean historical fixtures, not merely absence at state top level. A representative nested preservation assertion is:
+
+  ```js
+  const cleanHistory = [{
+    id: "history-1", snapshotDate: "2026-08-22", totalValue: 100000,
+    items: [{ holdingId: "cash", currentValue: 100000 }],
+  }];
+  const dirtyHistory = [{
+    ...clone(cleanHistory[0]),
+    ...liabilityFixture.staleLiabilityDerivedFields,
+    protectionAccounts: [{ id: "stale-protection" }],
+    dragItems: [{ type: "mortgage", score: 20 }],
+    items: [{
+      ...clone(cleanHistory[0].items[0]),
+      ...liabilityFixture.staleLiabilityDerivedFields,
+      protectionAccounts: [{ id: "nested-stale-protection" }],
+      dragItems: [{ type: "mortgage", score: 20 }],
+    }],
+  }];
+  for (const container of ["calculationSnapshots", "valuationSnapshots"]) {
+    for (const schemaVersion of [2, 3]) {
+      const input = validV3LiabilityState({ schemaVersion, [container]: clone(dirtyHistory) });
+      const before = clone(input);
+      const migrated = storage.migrateState(input);
+      assert.deepEqual(migrated[container], cleanHistory);
+      assert.deepEqual(input, before);
+    }
+  }
+  ```
+
+  Extend the same expected-clean assertions to direct wx-backed save/persisted-record inspection, wx load from a dirty seeded record (including reload), and memory-backed save/load. Cover both source versions and multiple snapshot records so count/order preservation is observable; add deeper object/array nesting, legal raw history fields, and legitimate completion booleans to catch indiscriminate key deletion. Preserve existing `snapshotDate`, `totalValue`, `items[].currentValue`, other legal fields, `manualDrags`, and `securityAccounts`; do not rebuild history from current facts. Verify a second migration/load is stable. New tests must call real Storage; fixture expected values and independent assertions must not reuse the production stripping helper.
+
+  Retain the existing `liability-non-interference-phase4a.test.js` created during initial Task 2 implementation. It must compare `getOverviewModel()` for otherwise identical v3 states with and without valid raw liabilities and assert equality for `retirementIndex`, `totalAssetProgress`, `passiveIncomeCoverageRate`, `cashSafetyRunwayMonths`, `retirementIndexCompleteness`, `result.monthlyInvestable`, `result.months`, and `dragTotalText`. It must also deep-compare `buildCalculationValues()` output and raw `manualDrags`, then use the existing canonical adapter result to prove liability completion does not become a missing/required canonical section.
 
 - [ ] **Step 2: Run the focused Storage and boundary tests to verify functional RED**
 
@@ -183,19 +261,20 @@
   node --test tests/storage-input-loop-phase1.test.js tests/liability-non-interference-phase4a.test.js
   ```
 
-  Expected RED: schema assertions still report version `2`, `liabilities`/completion are absent or not normalized, stale `dragItems` survives a persistence path, and v2 migration does not yet enforce the new v3 contract. A test harness failure is not an acceptable RED.
+  Expected RED for the retained Task 2 implementation: malformed-v3 load fails the expected-throw/zero-write assertions because it returns an empty array and writes it back; snapshot assertions fail because the forbidden derived fields survive. Existing v2 initialization, valid-v3 round-trip, and non-interference controls remain GREEN. Do not roll back the current implementation to reproduce the original pre-v3 RED, weaken assertions to match the previous 43-pass report, or accept a harness/import failure as functional RED.
 
 - [ ] **Step 3: Write the minimum schema and Storage implementation**
 
-  In `demo-data.js`, change only the schema constant/default shape necessary for v3: add empty `liabilities` to demo and empty user state, and add `liabilities: false` to `defaultInputCompletion`.
+  Preserve the already-implemented schema-v3 defaults in `demo-data.js`: empty `liabilities` in demo/user states and `liabilities: false` in `defaultInputCompletion`. Do not reimplement Task 1 or change the seven-field contract.
 
   In `storage.js`:
 
-  1. Add `liabilities` to `inputCompletionKeys` so normalization preserves it only for explicit user-mode `true`.
-  2. Add `dragItems` to `canonicalDerivedFields`; retain existing stripping for other derived fields and do not add a second sanitizer.
-  3. Determine whether source state is v2 before spreading it into defaults. For v2, explicitly assign `liabilities: []` and liability completion `false` after the spread so stale/new-shaped input cannot override migration rules.
-  4. For v3, accept only arrays and validate the complete array with Task 1’s real validator. Do not silently coerce malformed items, generate facts, or preserve partial arrays. Surface the validator’s Chinese error to the `saveState` caller.
-  5. Keep `userProfile.mortgage`, `carLoan`, `otherDebt`, `manualDrags`, holdings, income streams, Security facts, snapshots, existing completion fields, wx behavior, and Node fallback behavior otherwise unchanged.
+  1. Retain `liabilities` in `inputCompletionKeys` with the existing explicit user-mode-true rule. Validate v3 facts before returning any normalized completion; do not turn malformed facts into confirmed-none.
+  2. Retain existing top-level canonical stripping. Extend the same Storage-owned boundary to strip the seven prohibited derived payloads from known persisted snapshot structures at every object/array depth. Share the field policy across save/load/migration; do not introduce a parallel sanitizer with different rules. Respect the completion-boolean exception and preserve unrelated legal historical fields; do not recursively apply the broader top-level blacklist indiscriminately.
+  3. Preserve source-version detection before spreading defaults. For v2, explicitly initialize `liabilities: []` and liability completion false after the spread; absence is valid initialization. For v3, do not use defaults to mask a missing field.
+  4. Pass the original v3 liability value to Task 1's `validateLiabilityFacts()` in the shared boundary. Throw `Error(validation.message)` on failure and use `validation.value` on success. Remove the non-array-to-empty fallback; do not coerce items or preserve partial arrays. Save, load, and migration must agree on every accepted/rejected fact.
+  5. Permit wx writeback or memory replacement only after full validation and sanitization succeed. On failure, propagate the Chinese error, leave the original storage and input object unchanged, and do not call set/remove, clear/reset, return a default state, or partially persist cleanup. Preserve successful migration/writeback and memory fallback behavior otherwise.
+  6. Keep `userProfile.mortgage`, `carLoan`, `otherDebt`, `manualDrags`, holdings, income streams, Security raw facts, and legitimate existing completion fields unchanged. Preserve legal snapshot contents, record count/order, and business meaning; the only snapshot change is removal of forbidden derived payloads, not deletion, clearing, schema redesign, or recomputation.
 
   Do not alter `overview-model.js`, `retirement-index-adapter.js`, `retirement-index-model.js`, `calculation-core.js`, or any retirement formula.
 
@@ -207,7 +286,7 @@
   node --test tests/liability-facts-phase4a.test.js tests/storage-input-loop-phase1.test.js tests/liability-non-interference-phase4a.test.js
   ```
 
-  Expected GREEN: v2-to-v3 migration is exact, v3 raw facts survive both storage paths, only raw facts persist, stale `dragItems` never persists, legacy facts remain intact, and all listed retirement/canonical outputs are unchanged.
+  Expected GREEN: v2-to-v3 initialization remains exact; malformed v3 is symmetrically rejected by save/load/migration with Chinese errors and zero storage writes, including completion true; valid v3 raw facts and confirmation survive repeated loads. Top-level and nested calculation/valuation snapshot assertions prove all prohibited derived payloads are stripped on wx and memory paths while legal history and legacy facts remain intact. All listed retirement/canonical outputs remain unchanged. Report actual test counts; the earlier 43/43 result is not the amended gate.
 
 - [ ] **Step 5: Run the Task 2 regression set**
 
@@ -405,7 +484,7 @@ Run these commands only after every Task has its expected GREEN result. This gat
      tests/wechat-miniapp-page-smoke.test.js
    ```
 
-   Expected: valid liabilities persist as raw facts; derived values and stale `dragItems` do not; confirmed-none/invalidations are correct; all five frozen retirement/canonical outputs are unchanged; only the three permitted liability summaries are visible.
+   Expected: valid liabilities persist as raw facts; malformed-v3 save/load/migration rejects symmetrically with Chinese errors and zero writes; derived payloads do not persist at top level or inside snapshot structures, whose legal historical contents remain intact; confirmed-none/invalidations are correct; all five frozen retirement/canonical outputs are unchanged; only the three permitted liability summaries are visible.
 
 3. Validate Mini Program structure and compatibility:
 
@@ -425,7 +504,7 @@ Run these commands only after every Task has its expected GREEN result. This gat
    rg -n "liabilities|effectiveEssentialExpense|investableNetAssets" apps/wealth-freedom-demo/wechat-miniapp/utils/overview-model.js apps/wealth-freedom-demo/wechat-miniapp/utils/retirement-index-adapter.js apps/wealth-freedom-demo/wechat-miniapp/utils/retirement-index-model.js apps/wealth-freedom-demo/wechat-miniapp/utils/calculation-core.js
    ```
 
-   Expected: no whitespace errors; no Phase 4A change to canonical adapter/model or legacy simulation; `overview-model.js` has no new liability-derived input/output; only planned source/test/page/config files are modified. The pre-existing authoritative spec remains unchanged.
+   Expected: no whitespace errors; no Phase 4A change to canonical adapter/model or legacy simulation; `overview-model.js` has no new liability-derived input/output; only separately authorized scoped files are modified. This authorized spec/plan revision must not be silently changed during implementation, and its current uncommitted document changes must not be mixed into a code commit without the user's separate Git-scoping decision.
 
 5. Inspect final user-visible text in `pages/liabilities/liabilities.wxml` and controller-owned messages. Verify all new literal copy is Chinese, exactly three summaries are rendered, and no internal enum/boolean/schema/derived-only name is visible.
 
@@ -436,4 +515,5 @@ Run these commands only after every Task has its expected GREEN result. This gat
 - [x] **Spec coverage:** Task 1 covers V1 schema validation, all five types, `outstandingBalance > 0`, `monthlyPayment >= 0`, uniqueness, stable IDs, source, and all five pure summary values. Task 2 covers schema v3, v2 migration, explicit liability completion storage, raw-only persistence, stale `dragItems`, legacy retention, wx and memory paths, and non-interference. Task 3 covers CRUD, explicit confirmation, confirmed-none, mutation invalidation, atomic persistence, and Chinese controller messages. Task 4 covers independent page registration, Overview navigation, legacy readonly reminder, Chinese UI, and exactly three visible summaries. The final gate covers full regression, Mini Program validation, exact scope, and all frozen retirement outputs.
 - [x] **Placeholder scan:** This plan contains no unfinished-marker text, deferred implementation phrase, or cross-task shortcut. Every implementation task identifies files, interfaces, RED command/result, minimum code boundary, GREEN command/result, regression command, and commit scope.
 - [x] **Interface/type consistency:** Task 1 defines the validation and summary interfaces used by Task 2 and Task 3. Task 2 produces schema-v3 state and Storage behavior consumed by Task 3. Task 3 handler names are the only bindings Task 4 may reference. Tasks 2 and the final gate explicitly preserve the existing canonical adapter and retirement model boundaries.
+- [x] **Task 2 review findings:** V2 initialization remains distinct from malformed-v3 rejection; the shared validator, Chinese error, zero-write failed load/save, completion-true case, and unchanged original storage have explicit RED/GREEN requirements. Nested calculation/valuation and other known persisted snapshots follow the single-source policy without losing legal historical facts or confirmation booleans. No unconditional snapshot-preservation or invalid-v3-empty-fallback rule remains.
 - [x] **Scope review:** The plan adds no broker/SDK/network/data assumptions, no new retirement or Drag formula, no liability completeness gate, no legacy-field migration, no Overview presentation, and no persistence of derived values.

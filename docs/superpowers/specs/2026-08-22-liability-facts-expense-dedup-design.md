@@ -1,10 +1,12 @@
 # TuiLM Phase 4A：负债事实与必要支出去重设计
 
-**状态：** Design only，等待用户评审
+**状态：** Task 2 存储契约修订记录；Phase 4A 已推进至 Task 4 提交后状态。
 
 **日期：** 2026-08-22
 
-**基线：** `272dca1 feat(miniapp): bridge security into retirement protection`
+**原始设计基线：** `272dca1 feat(miniapp): bridge security into retirement protection`
+
+**Task 2 契约修订基线：** `6b5d3c881aed43f5eed0b5564b5032f5c06c4f0b feat(miniapp): add liability fact summary model`。本记录统一 malformed v3 拒绝与 snapshot 派生字段禁存契约，其他冻结设计不变。后续 Phase 4A Task 2、Task 3 与 Task 4 已依次推进；当前已提交 HEAD 为 `39d0fd2 feat(miniapp): add liability input page`。本修订保留其权威技术契约，不再将 Task 2 描述为未提交状态或施加已过期的后续任务授权限制。
 
 **权威性：** 本文是 Phase 4A「负债事实与必要支出去重」的唯一正式设计文档。后续实施、测试与评审必须以本文为准；本阶段不得以代码或测试实现替代本文的边界。
 
@@ -34,7 +36,7 @@ Phase 4A 建立独立、可持久化的原始负债事实源 `liabilities[]`，�
 
 ## 2. 当前工程事实与问题边界
 
-当前小程序 state 的 `schemaVersion` 为 2。`demo-data.js` 保存原始
+原始设计基线中的小程序 state 的 `schemaVersion` 为 2。`demo-data.js` 保存原始
 `userProfile`、`holdings`、`incomeStreams`、`manualDrags`、`securityAccounts` 与
 `inputCompletion`；`storage.js` 已剥离若干 canonical 派生字段和
 `protectionAccounts`，但尚未剥离 `dragItems`。
@@ -45,7 +47,7 @@ Phase 4A 建立独立、可持久化的原始负债事实源 `liabilities[]`，�
 | --- | --- | --- |
 | `userProfile.mortgage`、`carLoan`、`otherDebt` | 旧退休时间模拟使用的月度支出输入；`calculation-core.simulate()` 将它们加入月度支出 | 原样保留、原样持久化、原样参与旧模拟；不自动产生任何 `liabilities` item。 |
 | `manualDrags[]` | 遗留月度现金流事实；拖累页面以 `category`、`amount`、`title` 等字段维护，并传给旧退休时间模拟的 `manualDragOutflow` | 原样保留、原样持久化；不迁移为负债，不生成新 drag item，不更改现有拖累计算。 |
-| `dragItems` | canonical retirement input 的派生/兼容输入，不应成为 storage 事实源 | v3 migration 与每次保存都剥离顶层 stale `dragItems`；不影响 `manualDrags`。 |
+| `dragItems` | canonical retirement input 的派生/兼容输入，不应成为 storage 事实源 | v3 migration、load 与每次保存都剥离顶层及 persisted snapshot structures 中的 stale `dragItems` 派生载荷；不影响 `manualDrags` 或合法 completion 标记。 |
 
 现有 `overview-model.js` 仍有 `manualDrags → dragItems` 的历史 canonical-input fallback。
 Phase 4A 不修改这个既有 Drag 兼容路径，以避免改变 Drag 分数或 retirement model；但它不构成
@@ -141,7 +143,7 @@ inputCompletion: {
 demo 示例不得因现有 `mortgage`、`carLoan`、`otherDebt`、`manualDrags` 或任何默认值而
 生成 liability record 或自动确认负债。
 
-### 4.2 v2 → v3 迁移规则
+### 4.2 v2 初始化与 v3 校验必须区分
 
 对任意 schema v2 state，`migrateState()` 必须：
 
@@ -157,10 +159,42 @@ inputCompletion.liabilities := false
 备注复制成新的 liability。原因是旧字段的业务语义只有“旧模拟月度支出”，不足以可靠
 确定余额、债务类型、去重选择或用户确认。
 
-对 schema v3 state，`liabilities` 仅在其为数组时保留；异常值回退为 `[]`。每个 item
-在保存边界执行 V1 contract 校验：无效 item 必须使调用方得到明确的本地中文校验失败，
-而不是被静默转换、部分保存或自动补事实。`inputCompletion.liabilities` 仅在 user mode
-且原值严格为 `true` 时保留；其他情况为 `false`。既有 completion 字段必须原样保留。
+v2 原本没有正式 `liabilities` 字段，上述空数组与 false 是 schema 新增字段的初始化，
+不是异常数据 fallback。合法 v2 缺少此字段必须仍可升级；v2 中即使夹带同名数据或
+liability completion，也不把它们当作正式 v3 事实或确认。
+
+当 `schemaVersion === 3` 时，`liabilities` 必须存在且为符合第 3 节 V1 contract 的数组：
+`[]` 或完整的有效 liability facts 数组。`null`、object、string、number、boolean、
+显式 `undefined`、missing 以及其他非数组均为 malformed v3，必须明确拒绝。
+数组中的无效 item 或重复 id 同样使整个操作失败；不得过滤后部分接受、补默认事实、
+强制转换类型或将异常列表替换为空数组。
+
+v3 的 `saveState()`、`loadState()`、`migrateState()` / Storage canonicalization
+必须复用 Task 1 的 `validateLiabilityFacts()` 唯一事实校验边界，使用相同的合法性标准。
+成功时只保留七个 V1 raw 字段；失败时向调用方抛出带 validator 中文消息的 `Error`，
+不得出现 save 拒绝而 load 静默接受的非对称行为。非数组的中文错误为 `负债列表格式无效`；
+item 错误沿用 Task 1 的相应中文消息，不新增另一套校验规则。
+
+只有 v3 事实校验成功后，才按原语义保留 completion：`inputCompletion.liabilities`
+仅在 user mode 且原值严格为 `true` 时保留，其他情况为 `false`；既有 completion 字段
+必须原样保留。合法 v3 再次 migrate/load 不得重置已确认状态或丢失合法负债。
+
+### 4.2.1 validation failure 的零写入边界
+
+```text
+V2 缺少 liabilities → schema 初始化 → liabilities=[]，completion=false
+V3 malformed liabilities → 中文 validation error → ZERO STORAGE WRITE
+```
+
+`loadState()` 发现 malformed v3 必须失败，不返回替代 state，不进入自动迁移写回，
+不调用 `setStorageSync` / `removeStorageSync`，也不替换 Node memory fallback 的原 state。
+原始存储必须保持不变，即使其中的 `inputCompletion.liabilities === true` 也一样；
+不得构造或持久化 `[] + true` 形式的 confirmed-none，不得以重置 completion 为理由覆盖数据。
+`saveState()` 校验失败也不得写入或部分保存；`migrateState()` / canonicalization
+失败不得修改传入对象。即使同一 state 含有可清理的 stale derived fields，也必须先保证
+v3 事实校验成功，才允许持久化清理结果。失败加载不得产生 destructive normalization。
+
+本次只冻结此失败行为，不设计 recovery UI、自动恢复流程或额外存储系统。
 
 ### 4.3 stale `dragItems` 清理
 
@@ -177,7 +211,9 @@ wx storage reload
 Node memory fallback reload
 ```
 
-这一清理只删除 stale top-level `dragItems`；不得删除、改写或转换 `manualDrags`。
+这一清理删除顶层及第 4.4 节 persisted snapshot structures 中的 stale `dragItems`
+派生载荷；不得删除、改写或转换 `manualDrags`，也不得删除 `inputCompletion.dragItems`
+等合法确认标记。既有 Drag 兼容路径不变。
 
 ### 4.4 派生值绝不持久化
 
@@ -193,6 +229,31 @@ investableNetAssets
 ```
 
 同样不得持久化任何由这些值进一步计算出的分数、状态或推荐。
+
+禁止范围明确包括 top-level persisted state、`calculationSnapshots`、
+`valuationSnapshots` 以及 Phase 4A 已知其他 persisted snapshot container；容器内任意层级的
+对象和数组均不得绕过 stripping。当前 Task 2 Storage 明确持有前述两类 snapshot 数组，
+实施时须核对已有持久化入口；发现已有其他 snapshot container 时适用同一规则，
+不因本契约新增容器或重构 snapshot schema。
+
+统一的 single-source 分类为：
+
+| 分类 | 字段 / 载荷 | Storage 规则 |
+| --- | --- | --- |
+| Persisted raw facts | `liabilities`、`manualDrags`、`securityAccounts` | 保留各自冻结的事实契约；负债只保存经 Task 1 校验的七字段。 |
+| Non-persisted derived facts | `protectionAccounts`、`dragItems` 派生载荷，以及上述五项 liability summary | 顶层与 persisted snapshot structures 均须剥离；“历史快照”身份不赋予其正式事实地位。 |
+
+只要进入 TuiLM persistence boundary，就不能通过嵌套结构保存这些派生副本。
+该规则适用于 v2 → v3 migration、合法 v3 canonicalization、save、load/reload，
+并覆盖 wx-backed 与 Node memory fallback。校验成功后的持久化结果及返回 state 均须满足；
+malformed v3 的原始存储则按第 4.2.1 节保持不变，不以 stripping 为理由写回。
+
+清理只移除禁止的派生载荷，保留合法历史 snapshot facts、容器、记录数量、顺序及其他
+合法嵌套字段，不清空快照、不删除整条历史记录、不重算历史值、不改变业务含义。
+例如既有估值快照的 `snapshotDate`、`totalValue`、`items[].currentValue` 等仍须保留；
+不得把此规则扩大为“禁止所有历史计算字段”。`inputCompletion` 中合法的 boolean 确认标记
+（包括同名的 `protectionAccounts`、`dragItems`）不是 derived payload，必须保留原有语义；
+不得对所有对象无差别按同名键删除。此处不改变七字段 liability contract 或既有 raw facts。
 
 ## 5. 显式确认：`inputCompletion.liabilities`
 
@@ -345,8 +406,16 @@ holdings、assets、overview 或 canonical input。
 3. v2 旧字段不自动转换为 liability；
 4. v3 保存/重载在 wx-backed 与 Node memory fallback 两条路径都保留合法
    `liabilities` raw facts 和 completion；
-5. migrate/save/reload 都剥离 stale top-level `dragItems`，不伤及 `manualDrags`；
-6. 五个负债派生值不出现在 persisted state 或 snapshot。
+5. migrate/save/reload 都剥离顶层及 snapshot structures 中的 stale `dragItems`、
+   `protectionAccounts` 派生载荷，不伤及 `manualDrags`、`securityAccounts` 或合法 completion；
+6. 在 `calculationSnapshots`、`valuationSnapshots` 的记录及嵌套对象/数组中分别注入
+   五个负债派生值，验证 v2/v3 migration、save、load/reload、wx 和 memory 路径均剥离它们；
+   其他合法历史字段、快照数量与顺序保持不变，不能用清空快照满足断言；
+7. v3 `liabilities=null`、`{}`、`"invalid"`、number、boolean、`undefined` / missing
+   的 load/save/migration 均拒绝且错误符合 Task 1 中文校验；特别验证 completion 为 true
+   时仍拒绝、不返回 `[] + true`，load 发生零存储写入且原记录不变；无效数组 item 同样拒绝；
+8. 保留独立控制例：合法 v2 缺少 `liabilities` 时升级到 v3、空数组和 false；同时验证
+   合法 v3 空/非空数组、已有确认及重复 migration/load 的稳定性，避免混淆初始化与异常拒绝。
 
 ### 9.2 事实与去重
 
@@ -381,11 +450,14 @@ retirement-index model 和 Drag 契约必须保持原断言。后续实现不得
 Phase 4A 仅当以下条件同时满足时才可完成：
 
 - state 已稳定在 schema v3，且 v2 migration 无自动负债推断；
+- malformed v3 在 save/load/migration 使用同一 validator 明确拒绝，中文错误且零存储写入；
 - `liabilities[]` 是唯一负债 raw-fact source，V1 字段与五类 type 均按本文执行；
 - 每项有效 current liability 的 `outstandingBalance` 均满足
   `Number.isFinite(value) && value > 0`；0 元已结清余额不得保存为 liability；
 - completion 完全显式，明确无负债仅在空数组有效，事实变动立即失效；
 - 去重标记和五个派生值严格按本文公式计算且全部不持久化；
+- 顶层及 calculation/valuation 等 persisted snapshot structures 均执行统一 derived stripping，
+  保留合法历史事实，不以清空快照替代清理；
 - stale `dragItems` 在所有 storage 路径被剥离，`manualDrags` 不受影响；
 - 独立“负债”页面只做中文事实管理、汇总与确认，且页面汇总仅展示“负债总额”“每月总还款”与
   “尚未计入必要支出的月供”；不得展示 `effectiveEssentialExpense`、`investableNetAssets`，也不得
@@ -396,9 +468,11 @@ Phase 4A 仅当以下条件同时满足时才可完成：
 ## 11. 自检
 
 - [x] 本文只定义负债事实、去重与页面边界，没有实施代码、测试或迁移。
-- [x] 已以当前 schema v2、storage derived-field stripping、旧 profile 月供字段、
+- [x] 已以原始设计基线的 schema v2、storage derived-field stripping、旧 profile 月供字段、
   `manualDrags`、canonical adapter 和退休模型的真实调用边界为依据。
 - [x] 已将 v2 → v3 的空负债迁移、旧字段保留与显式 completion 写为确定规则。
+- [x] 已区分 v2 初始化与 malformed v3 拒绝，统一 save/load/migration 校验及失败零写入。
+- [x] 已明确两类已知快照和嵌套结构的派生载荷禁存，并保留合法历史事实及 completion 语义。
 - [x] 已将 `dragItems` stale storage 清理与 `manualDrags` 保留分开，未把二者混为事实源。
 - [x] 已固定五个派生值的唯一公式，且明确它们不接入任何当前退休指标或旧模拟。
 - [x] 已冻结所有新增用户可见文案为中文，没有引入外部数据能力假设。
